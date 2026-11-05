@@ -1,0 +1,164 @@
+// ============================================================
+// [build.gradle] 프로젝트 빌드 설정 파일 (Gradle 빌드 스크립트)
+// ============================================================
+// 역할: 프로젝트에 필요한 모든 라이브러리(의존성)를 선언하고,
+//       빌드 방식(Java 버전, 패키징 형식 등)을 설정합니다.
+//
+//
+// ★ 이 파일을 수정한 후에는 반드시 Gradle Sync(🐘 코끼리 아이콘)를 클릭하세요!
+//   단축키: Ctrl + Shift + O
+// ============================================================
+
+// ── 플러그인(Plugin) 설정 ──────────────────────────────────
+// 플러그인 = 프로젝트에 특수 기능을 추가하는 "확장팩"
+plugins {
+	id 'java'           // Java 소스 코드를 컴파일(.java → .class)하는 기능 추가
+	id 'org.springframework.boot' version '4.1.2'           // Spring Boot 3.4.3 프레임워크 지원
+	id 'io.spring.dependency-management' version '1.1.7'    // 의존성 버전을 Spring Boot에 맞게 자동 관리
+}
+
+// ── 프로젝트 기본 정보 ──────────────────────────────────────
+group = 'com.example'
+version = '0.0.1-SNAPSHOT'
+
+// ── Java 버전 설정 ──────────────────────────────────────────
+java {
+	toolchain {
+		languageVersion = JavaLanguageVersion.of(21)  // JDK 21 사용 설정
+	}
+}
+
+// ── Lombok 설정 보조 ────────────────────────────────────────
+configurations {
+	compileOnly {
+		extendsFrom annotationProcessor
+	}
+}
+
+// ── 저장소(Repository) 설정 ─────────────────────────────────
+repositories {
+	mavenCentral()
+}
+
+// ── 의존성(Dependencies) 목록 ───────────────────────────────
+// ★ scope 종류:
+//   implementation    = 코드 작성 + 실행 모두에 필요 (가장 일반적)
+//   compileOnly       = 코드 작성할 때만 필요 (예: Lombok)
+//   runtimeOnly       = 실행할 때만 필요 (예: DB 드라이버)
+//   annotationProcessor = 컴파일 시 어노테이션을 해석하는 도구
+//   testImplementation = 테스트 코드에서만 사용
+dependencies {
+
+	// ══════════════════════════════════════════════════════════
+	// ── Spring Boot 핵심 스타터 ──
+	// ══════════════════════════════════════════════════════════
+	implementation 'org.springframework.boot:spring-boot-starter-web'
+	// ↑ 웹 MVC 프레임워크: @Controller, @RestController, HTTP 요청/응답 처리
+	//   내장 Tomcat 서버 포함
+
+	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+	// ↑ JPA: Java 객체 ↔ DB 테이블 자동 매핑 (Hibernate 포함)
+
+	implementation 'org.springframework.boot:spring-boot-starter-validation'
+	// ↑ Bean Validation: @NotBlank, @Email, @Size, @Min, @Max 등
+
+	// ══════════════════════════════════════════════════════════
+	// ── [Phase 1] Spring Security (보안 프레임워크) ──
+	// ══════════════════════════════════════════════════════════
+	implementation 'org.springframework.boot:spring-boot-starter-security'
+	// ↑ 보안 프레임워크: 인증(Authentication)과 인가(Authorization) 처리
+	//   BCrypt 비밀번호 암호화, CSRF 방어, 세션 관리 등
+
+	// ══════════════════════════════════════════════════════════
+	// ── [Phase 4] JWT (JSON Web Token) 인증 ──
+	// ══════════════════════════════════════════════════════════
+	implementation 'io.jsonwebtoken:jjwt-api:0.12.6'
+	// ↑ JWT API: 토큰 생성/검증을 위한 인터페이스 정의
+
+	runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.6'
+	// ↑ JWT 구현체: 위 API의 실제 동작 코드
+
+	runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.12.6'
+	// ↑ JWT JSON 처리: JWT 내부의 JSON 데이터를 읽고 쓰는 도구
+	//   Jackson 라이브러리를 사용하여 JWT의 claims(정보)를 처리
+
+	// ══════════════════════════════════════════════════════════
+	// ── OAuth2 구글 로그인 ──
+	// ══════════════════════════════════════════════════════════
+	implementation 'org.springframework.boot:spring-boot-starter-oauth2-client'
+	// ↑ OAuth2 Client: 구글 로그인을 위한 라이브러리
+	//   Spring Security OAuth2와 통합되어 소셜 인증 자동 처리
+
+	// ══════════════════════════════════════════════════════════
+	// ── [팀 프로젝트] 타임리프 화면 ──
+	// ══════════════════════════════════════════════════════════
+	implementation 'org.springframework.boot:spring-boot-starter-thymeleaf'
+	// ↑ 타임리프 템플릿 엔진. 컨트롤러가 return "home" 하면
+	//   ThymeleafViewResolver 객체가 src/main/resources/templates/home.html 을 찾아 HTML 로 만든다.
+
+	implementation 'org.thymeleaf.extras:thymeleaf-extras-springsecurity6'
+	// ↑ 타임리프 화면에서 sec:authorize="isAuthenticated()" 같은 시큐리티 속성을 쓰게 해 주는 확장
+
+	// ══════════════════════════════════════════════════════════
+	// ── [팀 프로젝트] Spring AI → OpenRouter (무료 모델만) ──
+	// ══════════════════════════════════════════════════════════
+	implementation platform('org.springframework.ai:spring-ai-bom:2.0.2')
+	// ↑ Spring AI 라이브러리들의 버전을 한 번에 맞춰 주는 BOM(버전 목록)
+	implementation 'org.springframework.ai:spring-ai-starter-model-openai'
+	// ↑ OpenAI 형식으로 AI 를 호출하는 스타터. OpenRouter 는 OpenAI 와 같은 요청 형식을 쓰므로
+	//   application.properties 의 spring.ai.openai.base-url 만 openrouter.ai 로 바꿔 사용한다.
+
+	// ══════════════════════════════════════════════════════════
+	// ── [팀 프로젝트] AWS S3 (맛집 사진 저장) ──
+	// ══════════════════════════════════════════════════════════
+	implementation platform('software.amazon.awssdk:bom:2.30.0')
+	implementation 'software.amazon.awssdk:s3'
+	// ↑ AWS SDK v2 의 S3 클라이언트. app.storage=s3 일 때 S3StorageService 가 사용한다.
+
+	// ══════════════════════════════════════════════════════════
+	// ── 데이터베이스 드라이버 ──
+	// ══════════════════════════════════════════════════════════
+	testRuntimeOnly 'com.h2database:h2'
+	// ↑ H2: 테스트(GitHub Actions CI) 전용 메모리 DB. 실행은 MySQL 8 을 쓴다
+	//   서버를 끄면 데이터 소멸 → dev 프로필에서 사용
+
+	runtimeOnly 'com.mysql:mysql-connector-j'
+	// ↑ MySQL 드라이버: MySQL 데이터베이스 연결용
+	//   개발(내 PC)·배포(EC2) 모두 MySQL 8 에 저장
+
+	// ══════════════════════════════════════════════════════════
+	// ── Lombok (코드 자동 생성 도구) ──
+	// ══════════════════════════════════════════════════════════
+	compileOnly 'org.projectlombok:lombok'
+	annotationProcessor 'org.projectlombok:lombok'
+
+	// ══════════════════════════════════════════════════════════
+	// ── 테스트 라이브러리 ──
+	// ══════════════════════════════════════════════════════════
+	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+	testImplementation 'org.springframework.security:spring-security-test'
+	// ↑ Spring Security 테스트: @WithMockUser, csrf() 등 보안 테스트 도구
+
+	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+
+	// ══════════════════════════════════════════════════════════
+	// ── WAR 배포용 ──
+	// ══════════════════════════════════════════════════════════
+}
+
+// ── 테스트 실행 설정 ────────────────────────────────────────
+tasks.named('test') {
+	useJUnitPlatform()
+}
+
+// ============================================================
+// 배포 파일: ./gradlew bootJar → build/libs/my-matzip.jar (제출 파일 "프로젝트명.jar")
+// java -jar build/libs/my-matzip.jar 로 바로 실행된다 (내장 Tomcat 포함). EC2 배포도 이 파일을 쓴다.
+// ============================================================
+bootJar {
+	archiveFileName = "${rootProject.name}.jar"
+}
+// 실행할 수 없는 plain jar 는 만들지 않는다 (build/libs 에 실행 파일 하나만 남게)
+jar {
+	enabled = false
+}
