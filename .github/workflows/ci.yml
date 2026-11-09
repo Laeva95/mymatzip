@@ -1,0 +1,44 @@
+
+name: CI Build & Test
+
+# main, develop 브랜치에 Push하거나 PR을 생성하면 실행
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. GitHub 저장소 코드 내려받기
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      # 2. Java 21 설치 및 Gradle 캐시 설정
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+          cache: 'gradle'
+
+      # 3. Gradle 실행 권한 부여
+      - name: Grant execute permission
+        run: chmod +x gradlew
+
+      # 4. 프로젝트 빌드 및 테스트
+      - name: Build and Test
+        run: ./gradlew clean build
+
+      # 5. 테스트 결과 보관 (7일)
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-report
+          path: build/reports/tests/test/
+          if-no-files-found: ignore
+          retention-days: 7
