@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<!--/*
+============================================================
+[member/signup.html] 회원가입 화면 (A 회원·인증 담당)
+============================================================
+컨트롤러: MemberViewController.signupPage()  (GET /members/signup) → 넘겨주는 값 없음
+가입 처리: fetch POST /api/members/signup → MemberApiController.signup()
+  요청 본문 { email, password, nickname } → MemberSignupForm 으로 받아 @Valid 검사
+============================================================
+*/-->
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('회원가입')}"></head>
+<body>
+<nav th:replace="~{fragments/layout :: header}"></nav>
+<main class="container mb-5">
+  <div class="row justify-content-center">
+    <div class="col-md-5">
+      <div class="card shadow-sm">
+        <div class="card-body p-4">
+          <h3 class="card-title text-center mb-4"><i class="bi bi-person-plus"></i> 회원가입</h3>
+          <div id="errorMsg" class="alert alert-danger d-none"></div>
+          <div id="successMsg" class="alert alert-success d-none"></div>
+          <form id="signupForm">
+            <div class="mb-3">
+              <label for="email" class="form-label">이메일</label>
+              <input type="email" class="form-control" id="email" placeholder="example@test.com" required>
+            </div>
+            <div class="mb-3">
+              <label for="password" class="form-label">비밀번호</label>
+              <input type="password" class="form-control" id="password" placeholder="4~20자" minlength="4" maxlength="20" required>
+            </div>
+            <div class="mb-3">
+              <label for="nickname" class="form-label">닉네임</label>
+              <input type="text" class="form-control" id="nickname" placeholder="2~10자" minlength="2" maxlength="10" required>
+            </div>
+            <button type="submit" class="btn btn-primary w-100 mb-3"><i class="bi bi-person-plus"></i> 가입하기</button>
+          </form>
+          <div class="text-center">
+            <span class="text-muted">이미 계정이 있으신가요?</span>
+            <a th:href="@{/members/login}">로그인</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+<th:block th:replace="~{fragments/layout :: footer}"></th:block>
+<script>
+  document.getElementById('signupForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+    const errorMsg = document.getElementById('errorMsg');
+    const successMsg = document.getElementById('successMsg');
+    errorMsg.classList.add('d-none');
+    successMsg.classList.add('d-none');
+    fetchJson('/api/members/signup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: document.getElementById('email').value,
+        password: document.getElementById('password').value,
+        nickname: document.getElementById('nickname').value
+      })
+    }).then(function (r) {
+      if (r.ok) {
+        successMsg.textContent = '회원가입 성공! 로그인 페이지로 이동합니다.';
+        successMsg.classList.remove('d-none');
+        setTimeout(function () { window.location.href = '/members/login'; }, 1500);
+      } else {
+        errorMsg.textContent = r.body.error || '가입에 실패했습니다.';
+        errorMsg.classList.remove('d-none');
+      }
+    }).catch(function () {
+      errorMsg.textContent = '서버 오류가 발생했습니다.';
+      errorMsg.classList.remove('d-none');
+    });
+  });
+</script>
+</body>
+</html>
