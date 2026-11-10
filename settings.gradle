@@ -7,4 +7,4 @@
 // ★ rootProject.name 값은 build.gradle의 artifact 이름과 일치해야 합니다.
 // ============================================================
 
-rootProject.name = 'mymatzip'
+rootProject.name = 'my-matzip'
