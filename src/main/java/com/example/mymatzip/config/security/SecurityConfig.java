@@ -69,8 +69,8 @@ import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 // JWT 필터를 이 필터 "앞"에 배치하여 JWT 인증을 먼저 수행
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
-// AntPathRequestMatcher: URL 패턴 매칭 — 로그아웃 요청 GET/POST 모두 허용하기 위해 사용
-import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
+// PathPatternRequestMatcher: URL 패턴 매칭 — 로그아웃 요청 GET/POST 모두 허용하기 위해 사용
+import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
 
 // [추가] 소셜 로그인(OAuth2) 설정용 — 11장의 클래스 대신 스프링 인터페이스 타입으로 받아서,
 //   11장 파일이 없어도 이 파일이 컴파일되고 실행됩니다.
@@ -191,7 +191,7 @@ public class SecurityConfig {
                 // invalidateHttpSession: 세션 무효화 (모든 세션 데이터 삭제)
                 // clearAuthentication: SecurityContext에서 인증 정보도 삭제
                 .logout(logout -> logout
-                        .logoutRequestMatcher(new AntPathRequestMatcher("/api/members/logout"))
+                        .logoutRequestMatcher(PathPatternRequestMatcher.withDefaults().matcher("/api/members/logout"))
                         .logoutSuccessUrl("/")
                         .invalidateHttpSession(true)
                         .clearAuthentication(true)

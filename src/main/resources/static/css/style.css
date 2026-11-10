@@ -1,0 +1,568 @@
+/*
+ * ============================================================
+ * [style.css] 부산 맛집 사이트 공통 디자인 (Bootstrap 5.3 위에 덮어쓰기)
+ * ============================================================
+ * 컨셉: "부산 항구 시장"
+ *   - 항구 네이비(바다·밤 부두)  : 주 색상. 내비, 버튼, 제목
+ *   - 구명환 오렌지(시장 간판·부표): 강조 색상. 메인 행동 버튼, 아이콘 포인트
+ *   - 바닷소금 회청색            : 페이지 바탕
+ *   - 간판체(Black Han Sans)     : 큰 제목·브랜드에만 사용
+ *   - 본문(IBM Plex Sans KR)     : 나머지 모든 글자
+ *
+ * fragments/layout.html 의 head 조각에서 Bootstrap CSS "다음에" 불러와야 덮어쓰기가 된다.
+ * HTML 클래스는 그대로 두고, Bootstrap 변수와 기존 클래스를 다시 꾸미는 방식이다.
+ * ============================================================
+ */
+
+@import url('https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap');
+
+/* ── 1. 디자인 토큰 ───────────────────────────────────────── */
+:root {
+    --mz-harbor:        #0F4C5C;   /* 항구 네이비 (주 색상) */
+    --mz-harbor-deep:   #0A3340;   /* 밤 부두 (내비·푸터·히어로) */
+    --mz-harbor-ink:    #13262E;   /* 본문 글자 */
+    --mz-buoy:          #FF6B2C;   /* 구명환 오렌지 (강조) */
+    --mz-buoy-hover:    #F2581A;
+    --mz-salt:          #EEF3F2;   /* 바닷소금 바탕 */
+    --mz-foam:          #E1ECEA;   /* 옅은 물빛 (보조 면) */
+    --mz-line:          #D3DEDC;   /* 테두리 */
+    --mz-muted:         #5B6F75;   /* 보조 글자 */
+    --mz-star:          #F5A300;   /* 별점 */
+
+    --mz-font-display: 'Black Han Sans', 'IBM Plex Sans KR', sans-serif;
+    --mz-font-body:    'IBM Plex Sans KR', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+
+    --mz-radius-lg: 18px;   /* 히어로, 큰 패널 */
+    --mz-radius-md: 12px;   /* 카드 */
+    --mz-radius-sm: 8px;    /* 입력창, 버튼 */
+
+    /* Bootstrap 변수 덮어쓰기 → bg-primary, text-primary, 링크 등에 한 번에 반영 */
+    --bs-primary: var(--mz-harbor);
+    --bs-primary-rgb: 15, 76, 92;
+    --bs-primary-text-emphasis: var(--mz-harbor-deep);
+    --bs-primary-bg-subtle: var(--mz-foam);
+    --bs-primary-border-subtle: #B9D0CD;
+    --bs-body-font-family: var(--mz-font-body);
+    --bs-body-font-size: 1rem;
+    --bs-body-line-height: 1.65;
+    --bs-body-color: var(--mz-harbor-ink);
+    --bs-body-bg: var(--mz-salt);
+    --bs-secondary-color: var(--mz-muted);
+    --bs-border-color: var(--mz-line);
+    --bs-border-radius: var(--mz-radius-sm);
+    --bs-border-radius-lg: var(--mz-radius-md);
+    --bs-link-color: var(--mz-harbor);
+    --bs-link-color-rgb: 15, 76, 92;
+    --bs-link-hover-color: var(--mz-buoy-hover);
+    --bs-link-hover-color-rgb: 242, 88, 26;
+    --bs-light-rgb: 225, 236, 234;          /* bg-light → 옅은 물빛 */
+    --bs-dark-rgb: 10, 51, 64;              /* bg-dark  → 밤 부두 */
+    --bs-focus-ring-color: rgba(255, 107, 44, .35);
+}
+
+/* ── 2. 기본 ──────────────────────────────────────────────── */
+body {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background-color: var(--mz-salt);
+    color: var(--mz-harbor-ink);
+    font-family: var(--mz-font-body);
+    word-break: keep-all;               /* 한글 단어 중간에서 줄바꿈하지 않음 */
+    -webkit-font-smoothing: antialiased;
+}
+main { flex: 1; }
+
+h1, h2, .display-4, .display-5 {
+    font-family: var(--mz-font-display);
+    font-weight: 400;                   /* 간판체는 굵기가 하나뿐 */
+    letter-spacing: -0.01em;
+    line-height: 1.2;
+}
+h3, h4, h5 { font-weight: 700; letter-spacing: -0.02em; }
+main > h2, main > .d-flex > h2 { font-size: clamp(1.6rem, 3vw, 2rem); }
+main h2 > .bi, main h4 > .bi, main h5 > .bi { color: var(--mz-buoy); }
+
+::selection { background: var(--mz-buoy); color: #fff; }
+
+:focus-visible { outline: 3px solid var(--mz-buoy); outline-offset: 2px; }
+.btn:focus-visible, .form-control:focus, .form-select:focus {
+    box-shadow: 0 0 0 .25rem var(--bs-focus-ring-color);
+}
+
+.text-muted { color: var(--mz-muted) !important; }
+.text-primary { color: var(--mz-harbor) !important; }
+.ai-box { white-space: pre-line; }
+
+/* ── 3. 내비게이션 ────────────────────────────────────────── */
+.navbar.bg-primary {
+    background-color: var(--mz-harbor-deep) !important;
+    position: sticky;
+    top: 0;
+    z-index: 1030;
+    padding-block: .7rem;
+    border-bottom: 3px solid var(--mz-buoy);
+}
+.navbar-dark {
+    --bs-navbar-color: rgba(255, 255, 255, .78);
+    --bs-navbar-hover-color: #fff;
+    --bs-navbar-active-color: #fff;
+}
+.navbar-brand {
+    font-family: var(--mz-font-display);
+    font-weight: 400;
+    font-size: 1.45rem;
+    letter-spacing: 0;
+}
+.navbar-brand .bi { color: var(--mz-buoy); margin-right: .2rem; }
+.navbar .nav-link {
+    font-size: .95rem;
+    font-weight: 500;
+    border-radius: var(--mz-radius-sm);
+    padding-inline: .75rem !important;
+}
+.navbar .nav-link:hover { background: rgba(255, 255, 255, .08); }
+.navbar .nav-link .bi { margin-right: .15rem; opacity: .85; }
+.navbar-toggler { border-color: rgba(255, 255, 255, .25); }
+
+/* ── 4. 홈 히어로 (main 첫 번째 bg-primary 박스) ────────────── */
+main > .bg-primary.rounded-3 {
+    position: relative;
+    overflow: hidden;
+    background-color: var(--mz-harbor-deep) !important;
+    border-radius: var(--mz-radius-lg) !important;
+    padding: clamp(2.5rem, 7vw, 5rem) clamp(1.5rem, 5vw, 4rem) clamp(5.5rem, 10vw, 7.5rem) !important;
+    margin-top: .5rem;
+    text-align: left !important;
+    /* 아래쪽 물결 3겹: 부산 앞바다 */
+    background-image:
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 120' preserveAspectRatio='none'%3E%3Cpath d='M0 70 C150 30 300 110 450 70 S750 30 900 70 1050 110 1200 70 V120 H0Z' fill='%23FF6B2C'/%3E%3C/svg%3E"),
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 120' preserveAspectRatio='none'%3E%3Cpath d='M0 60 C200 20 400 100 600 60 S1000 20 1200 60 V120 H0Z' fill='%23176478'/%3E%3C/svg%3E"),
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 120' preserveAspectRatio='none'%3E%3Cpath d='M0 50 C250 90 450 10 700 50 S1050 90 1200 40 V120 H0Z' fill='%230F4C5C'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: bottom -6px left, bottom 12px left, bottom 28px left;
+    background-size: 100% 28px, 100% 46px, 100% 60px;
+}
+main > .bg-primary.rounded-3 .display-5 {
+    font-size: clamp(2.6rem, 7vw, 4.75rem);
+    line-height: 1.05;
+    margin-bottom: 1rem;
+    max-width: 14ch;
+    animation: mz-rise .7s cubic-bezier(.2, .7, .2, 1) both;
+}
+main > .bg-primary.rounded-3 .display-5 .bi {
+    display: block;
+    font-size: .55em;
+    color: var(--mz-buoy);
+    margin-bottom: .6rem;
+}
+main > .bg-primary.rounded-3 .lead {
+    font-size: clamp(1.05rem, 2vw, 1.25rem);
+    color: rgba(255, 255, 255, .82);
+    max-width: 34em;
+    margin-bottom: 2rem !important;
+    animation: mz-rise .7s .12s cubic-bezier(.2, .7, .2, 1) both;
+}
+main > .bg-primary.rounded-3 > .d-flex {
+    justify-content: flex-start !important;
+    animation: mz-rise .7s .22s cubic-bezier(.2, .7, .2, 1) both;
+}
+/* 히어로 메인 버튼: 구명환 오렌지 + 진한 글자 (대비 7:1 이상) */
+main > .bg-primary.rounded-3 .btn-light {
+    --bs-btn-bg: var(--mz-buoy);
+    --bs-btn-border-color: var(--mz-buoy);
+    --bs-btn-color: var(--mz-harbor-ink);
+    --bs-btn-hover-bg: #fff;
+    --bs-btn-hover-border-color: #fff;
+    --bs-btn-hover-color: var(--mz-harbor-ink);
+    --bs-btn-active-bg: #fff;
+    --bs-btn-active-color: var(--mz-harbor-ink);
+    font-weight: 700;
+}
+main > .bg-primary.rounded-3 .btn-outline-light {
+    --bs-btn-border-color: rgba(255, 255, 255, .5);
+    --bs-btn-hover-bg: rgba(255, 255, 255, .12);
+    --bs-btn-hover-color: #fff;
+    --bs-btn-hover-border-color: #fff;
+    font-weight: 600;
+}
+
+@keyframes mz-rise {
+    from { opacity: 0; transform: translateY(14px); }
+    to   { opacity: 1; transform: none; }
+}
+
+/* ── 5. 카드 공통 ─────────────────────────────────────────── */
+.card {
+    --bs-card-border-color: var(--mz-line);
+    --bs-card-border-radius: var(--mz-radius-md);
+    --bs-card-inner-border-radius: calc(var(--mz-radius-md) - 1px);
+    --bs-card-cap-bg: transparent;
+    background-color: #fff;
+}
+.card.shadow-sm { box-shadow: 0 1px 2px rgba(10, 51, 64, .06) !important; }
+.card-header {
+    padding: 1.1rem 1.25rem;
+    border-bottom-color: var(--mz-line);
+}
+
+/* 맛집 카드 (홈·목록·검색결과·AI추천·찜 목록): col 안의 h-100 카드 */
+.row.g-4 > [class*="col-md-6"] > .card.h-100 {
+    transition: border-color .15s ease, box-shadow .15s ease;
+}
+.row.g-4 > [class*="col-md-6"] > .card.h-100:hover {
+    border-color: var(--mz-harbor);
+    box-shadow: 0 6px 20px -8px rgba(10, 51, 64, .28);
+}
+.card-img-top { height: 200px !important; object-fit: cover; }
+.card .card-body { padding: 1.25rem 1.35rem; }
+.card-title a { color: var(--mz-harbor-ink) !important; }
+.card-title a:hover { color: var(--mz-buoy-hover) !important; }
+/* 카드 전체를 눌러도 상세로 이동 (제목 링크를 카드 크기로 늘림) */
+.row.g-4 > [class*="col-md-6"] > .card.h-100 { position: relative; }
+.row.g-4 > [class*="col-md-6"] > .card.h-100 .card-title a::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+}
+.row.g-4 > [class*="col-md-6"] > .card.h-100 .btn { position: relative; z-index: 2; }
+.card-text.small:not(.text-muted) {
+    color: #3A4E55;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+.card-text .bi-geo-alt { color: var(--mz-buoy); }
+
+/* ── 6. 홈: 카테고리 바로가기 ──────────────────────────────── */
+.row.g-3 > .col-4.col-md-2 .card {
+    border: 1px solid var(--mz-line);
+    border-radius: 999px 999px var(--mz-radius-md) var(--mz-radius-md);   /* 아치형 시장 좌판 */
+    padding: 1.25rem .5rem 1rem !important;
+    transition: background-color .15s ease, border-color .15s ease;
+}
+.row.g-3 > .col-4.col-md-2 .card .fs-1 { line-height: 1.2; }
+.row.g-3 > .col-4.col-md-2 .card .fw-bold { font-size: .95rem; margin-top: .35rem; }
+.row.g-3 > .col-4.col-md-2 a:hover .card,
+.row.g-3 > .col-4.col-md-2 a:focus-visible .card {
+    background-color: var(--mz-harbor-deep);
+    border-color: var(--mz-harbor-deep);
+}
+.row.g-3 > .col-4.col-md-2 a:hover .fw-bold,
+.row.g-3 > .col-4.col-md-2 a:focus-visible .fw-bold { color: #fff !important; }
+
+/* 홈: AI 추천 카드 → 물빛 면으로 구분 */
+main > .card.shadow-sm.mb-5 {
+    background-color: var(--mz-foam);
+    border: 0;
+    box-shadow: none !important;
+}
+main > .card.shadow-sm.mb-5 > .card-body { padding: clamp(1.25rem, 3vw, 2rem); }
+main > .card.shadow-sm.mb-5 .alert-secondary { background: #fff; border: 0; }
+
+/* ── 7. 배지·별점 ─────────────────────────────────────────── */
+.badge {
+    font-weight: 600;
+    font-size: .75rem;
+    padding: .38em .7em;
+    border-radius: 999px;
+    letter-spacing: 0;
+}
+.badge.bg-primary {
+    background-color: var(--mz-foam) !important;
+    color: var(--mz-harbor) !important;
+}
+.badge.bg-secondary {
+    background-color: var(--mz-harbor-ink) !important;
+}
+.rating-stars { color: var(--mz-star); white-space: nowrap; }
+.rating-stars .text-muted { font-variant-numeric: tabular-nums; }
+
+/* ── 8. 버튼 ──────────────────────────────────────────────── */
+.btn {
+    --bs-btn-font-weight: 600;
+    --bs-btn-border-radius: var(--mz-radius-sm);
+    --bs-btn-padding-x: 1rem;
+}
+.btn-lg { --bs-btn-border-radius: 10px; --bs-btn-padding-x: 1.4rem; --bs-btn-font-size: 1.05rem; }
+.btn-sm { --bs-btn-border-radius: 7px; --bs-btn-padding-x: .7rem; }
+.btn .bi { margin-right: .15rem; }
+
+.btn-primary {
+    --bs-btn-bg: var(--mz-harbor);
+    --bs-btn-border-color: var(--mz-harbor);
+    --bs-btn-hover-bg: var(--mz-harbor-deep);
+    --bs-btn-hover-border-color: var(--mz-harbor-deep);
+    --bs-btn-active-bg: var(--mz-harbor-deep);
+    --bs-btn-active-border-color: var(--mz-harbor-deep);
+    --bs-btn-disabled-bg: #6E8F97;
+    --bs-btn-disabled-border-color: #6E8F97;
+}
+.btn-outline-primary {
+    --bs-btn-color: var(--mz-harbor);
+    --bs-btn-border-color: var(--mz-line);
+    --bs-btn-bg: #fff;
+    --bs-btn-hover-bg: var(--mz-foam);
+    --bs-btn-hover-color: var(--mz-harbor-deep);
+    --bs-btn-hover-border-color: var(--mz-harbor);
+    --bs-btn-active-bg: var(--mz-harbor);
+    --bs-btn-active-border-color: var(--mz-harbor);
+}
+.btn-outline-secondary {
+    --bs-btn-color: var(--mz-muted);
+    --bs-btn-border-color: var(--mz-line);
+    --bs-btn-hover-bg: var(--mz-foam);
+    --bs-btn-hover-color: var(--mz-harbor-ink);
+    --bs-btn-hover-border-color: var(--mz-line);
+}
+.btn-warning {
+    --bs-btn-bg: var(--mz-buoy);
+    --bs-btn-border-color: var(--mz-buoy);
+    --bs-btn-color: var(--mz-harbor-ink);
+    --bs-btn-hover-bg: var(--mz-buoy-hover);
+    --bs-btn-hover-border-color: var(--mz-buoy-hover);
+    --bs-btn-hover-color: var(--mz-harbor-ink);
+}
+.btn-outline-warning {
+    --bs-btn-color: #B34510;
+    --bs-btn-border-color: #F5C2A8;
+    --bs-btn-hover-bg: #FFF1EA;
+    --bs-btn-hover-color: #8F3509;
+    --bs-btn-hover-border-color: var(--mz-buoy);
+}
+.btn-danger {
+    --bs-btn-bg: #D43A3A;
+    --bs-btn-border-color: #D43A3A;
+}
+.btn-outline-danger {
+    --bs-btn-color: #C23333;
+    --bs-btn-border-color: #EDC4C4;
+    --bs-btn-hover-bg: #FCEDED;
+    --bs-btn-hover-color: #A32828;
+    --bs-btn-hover-border-color: #C23333;
+}
+.btn-outline-dark {
+    --bs-btn-border-color: var(--mz-line);
+    --bs-btn-color: var(--mz-harbor-ink);
+    --bs-btn-hover-bg: #fff;
+    --bs-btn-hover-color: var(--mz-harbor-ink);
+    --bs-btn-hover-border-color: var(--mz-harbor-ink);
+    background: #fff;
+}
+
+/* 목록: 카테고리 필터 버튼 → 알약형 */
+main > .mb-4 > .btn-sm {
+    --bs-btn-border-radius: 999px;
+    --bs-btn-padding-x: 1rem;
+    --bs-btn-padding-y: .4rem;
+}
+main > .mb-4 > .btn-sm.btn-primary {
+    --bs-btn-bg: var(--mz-harbor-deep);
+    --bs-btn-border-color: var(--mz-harbor-deep);
+}
+
+/* ── 9. 폼 ────────────────────────────────────────────────── */
+.form-control, .form-select {
+    border-color: var(--mz-line);
+    border-radius: var(--mz-radius-sm);
+    padding: .65rem .9rem;
+    background-color: #fff;
+}
+.form-control::placeholder { color: #8A9DA2; }
+.form-control:focus, .form-select:focus { border-color: var(--mz-buoy); }
+.form-label { font-weight: 600; font-size: .9rem; margin-bottom: .4rem; }
+.input-group-sm > .form-control { padding: .4rem .7rem; }
+
+/* 검색창: 돋보기 버튼을 진하게 */
+#searchForm .form-control { padding-block: .75rem; }
+#searchForm .btn { --bs-btn-padding-x: 1.2rem; --bs-btn-bg: var(--mz-harbor); --bs-btn-color: #fff; --bs-btn-border-color: var(--mz-harbor); --bs-btn-hover-bg: var(--mz-harbor-deep); --bs-btn-hover-color: #fff; }
+
+/* 로그인·회원가입·맛집 등록 폼 카드 */
+.row.justify-content-center > [class*="col-md-5"] > .card,
+.row.justify-content-center > [class*="col-md-7"] > .card {
+    border: 0;
+    border-top: 5px solid var(--mz-harbor-deep);
+    margin-top: 1.5rem;
+    box-shadow: 0 12px 32px -16px rgba(10, 51, 64, .3) !important;
+}
+.row.justify-content-center .card-body > h3.card-title {
+    font-family: var(--mz-font-display);
+    font-weight: 400;
+    font-size: 1.9rem;
+}
+.row.justify-content-center .card-body > h3.card-title .bi { color: var(--mz-buoy); }
+
+/* ── 10. 맛집 상세 ────────────────────────────────────────── */
+main > .card.mb-4:first-child > .card-body { padding: clamp(1.25rem, 3vw, 2rem); }
+main > .card.mb-4:first-child h2 {
+    font-size: clamp(2rem, 5vw, 3rem);
+    margin-bottom: .5rem !important;
+}
+main > .card.mb-4:first-child .img-fluid { border-radius: var(--mz-radius-md) !important; }
+main > .card.mb-4:first-child hr { border-color: var(--mz-line); opacity: 1; margin-block: 1.5rem; }
+main > .card.mb-4:first-child p > .bi { color: var(--mz-buoy) !important; margin-right: .2rem; }
+/* 평균 별점 박스: 큰 숫자를 간판체로 */
+main > .card.mb-4:first-child .bg-light.rounded {
+    border-radius: var(--mz-radius-md) !important;
+    padding: 1.5rem !important;
+}
+main > .card.mb-4:first-child .bg-light .fs-3 {
+    font-family: var(--mz-font-display);
+    font-weight: 400 !important;
+    font-size: 3rem !important;
+    line-height: 1;
+    margin-top: .25rem;
+    color: var(--mz-harbor-deep);
+}
+main > .card.mb-4:first-child .bg-light .fs-1 { font-size: 1.6rem !important; }
+#wishBtn { border-radius: 999px; --bs-btn-padding-x: 1.1rem; }
+
+/* AI 리뷰 요약 */
+.card.border-primary {
+    border-color: transparent !important;
+    background-color: var(--mz-foam);
+}
+.ai-box {
+    background: #fff;
+    border-radius: var(--mz-radius-sm);
+    padding: 1rem 1.15rem;
+    line-height: 1.75;
+}
+
+/* 리뷰 작성 박스 */
+#reviewContent { min-height: 6rem; }
+.card-body > .bg-light.rounded { border-radius: var(--mz-radius-md) !important; padding: 1.25rem !important; }
+.card-body > .bg-light.rounded h5 { font-size: 1.05rem; }
+.star-pick { transition: transform .1s ease; color: var(--mz-star) !important; }
+.star-pick:hover { transform: scale(1.15); }
+
+/* 리뷰 한 개 */
+#reviewList > [id^="review-"] { border-color: var(--mz-line) !important; }
+#reviewList > [id^="review-"]:last-of-type { border-bottom: 0 !important; margin-bottom: 0 !important; }
+#reviewList strong { font-weight: 700; }
+#reviewList [id^="repliesArea-"] .border-start { border-color: var(--mz-buoy) !important; }
+
+/* ── 11. 마이페이지·관리자 ────────────────────────────────── */
+.bi-person-circle[style] { color: var(--mz-harbor) !important; }
+.card.bg-light { border: 0; }
+.card.bg-light .card-title {
+    font-family: var(--mz-font-display);
+    font-weight: 400;
+    font-size: 1.8rem;
+}
+.text-success { color: #1F7A5C !important; }
+.text-danger { color: #C23333 !important; }
+
+/* 관리자 대시보드 통계 숫자 */
+#statMembers, #statRestaurants, #statReviews {
+    font-family: var(--mz-font-display);
+    font-weight: 400;
+}
+.card-body > .bi[style*="font-size:2rem"] { color: var(--mz-harbor) !important; }
+a.text-decoration-none > .card h5 { color: var(--mz-harbor-ink); }
+a.text-decoration-none:hover > .card { border-color: var(--mz-harbor); }
+
+/* 탭 */
+.nav-tabs {
+    --bs-nav-tabs-border-color: var(--mz-line);
+    --bs-nav-tabs-link-active-color: var(--mz-harbor-deep);
+    --bs-nav-tabs-link-active-bg: transparent;
+    --bs-nav-tabs-link-active-border-color: transparent;
+    gap: .25rem;
+}
+.nav-tabs .nav-link {
+    color: var(--mz-muted);
+    font-weight: 600;
+    border: 0;
+    border-bottom: 3px solid transparent;
+    padding: .75rem 1rem;
+}
+.nav-tabs .nav-link:hover { color: var(--mz-harbor-ink); border-bottom-color: var(--mz-line); }
+.nav-tabs .nav-link.active { border-bottom-color: var(--mz-buoy); }
+
+/* 표 */
+.table {
+    --bs-table-bg: #fff;
+    --bs-table-hover-bg: #F5F9F8;
+    --bs-table-border-color: var(--mz-line);
+    margin-bottom: 0;
+}
+.table-responsive {
+    border: 1px solid var(--mz-line);
+    border-radius: var(--mz-radius-md);
+    background: #fff;
+}
+.table > thead.table-light, .table-light {
+    --bs-table-bg: var(--mz-foam);
+    --bs-table-color: var(--mz-harbor-deep);
+}
+.table th { font-weight: 600; font-size: .875rem; white-space: nowrap; }
+.table td, .table th { padding: .8rem 1rem; vertical-align: middle; }
+
+/* 목록형(list-group) */
+.list-group { --bs-list-group-border-color: var(--mz-line); --bs-list-group-border-radius: var(--mz-radius-md); }
+
+/* 페이지 번호 */
+.pagination {
+    --bs-pagination-color: var(--mz-harbor-ink);
+    --bs-pagination-border-color: transparent;
+    --bs-pagination-bg: transparent;
+    --bs-pagination-hover-bg: var(--mz-foam);
+    --bs-pagination-hover-color: var(--mz-harbor-deep);
+    --bs-pagination-hover-border-color: transparent;
+    --bs-pagination-active-bg: var(--mz-harbor-deep);
+    --bs-pagination-active-border-color: var(--mz-harbor-deep);
+    --bs-pagination-focus-box-shadow: 0 0 0 .25rem var(--bs-focus-ring-color);
+    --bs-pagination-disabled-bg: transparent;
+    --bs-pagination-disabled-border-color: transparent;
+    gap: .25rem;
+}
+.pagination .page-link { border-radius: var(--mz-radius-sm) !important; min-width: 2.4rem; text-align: center; font-weight: 600; }
+
+/* ── 12. 알림 ─────────────────────────────────────────────── */
+.alert { border: 0; border-radius: var(--mz-radius-md); }
+.alert-info { background: var(--mz-foam); color: var(--mz-harbor-deep); }
+.alert-danger { background: #FCEDED; color: #9B2626; }
+.alert-success { background: #E3F2EC; color: #1A5E47; }
+.alert-light.border { border-color: var(--mz-line) !important; background: var(--mz-salt); }
+
+/* ── 13. 오류 페이지 ──────────────────────────────────────── */
+main.text-center.py-5 .display-4 {
+    font-size: clamp(5rem, 18vw, 9rem);
+    color: var(--mz-harbor-deep);
+    line-height: 1;
+}
+
+/* ── 14. 푸터 ─────────────────────────────────────────────── */
+footer.bg-dark {
+    background-color: var(--mz-harbor-deep) !important;
+    padding-block: 2.5rem !important;
+    margin-top: 3rem;
+}
+footer.bg-dark p:first-child {
+    font-family: var(--mz-font-display);
+    font-size: 1.2rem;
+}
+footer.bg-dark p:first-child .bi { color: var(--mz-buoy); }
+footer.bg-dark .text-secondary { color: rgba(255, 255, 255, .55) !important; }
+
+/* ── 15. 반응형·접근성 ────────────────────────────────────── */
+@media (max-width: 991.98px) {
+    .navbar-collapse { padding-top: .75rem; }
+    .navbar .nav-link { padding-block: .6rem !important; }
+}
+@media (max-width: 575.98px) {
+    main > .bg-primary.rounded-3 { border-radius: var(--mz-radius-md) !important; }
+    main > .bg-primary.rounded-3 .btn-lg { width: 100%; }
+    .card-img-top { height: 170px !important; }
+    main > .card.mb-4:first-child .d-flex.justify-content-between.align-items-start { flex-direction: column; gap: 1rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: .01ms !important;
+        animation-delay: 0s !important;
+        transition-duration: .01ms !important;
+    }
+}
