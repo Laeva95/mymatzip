@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<!--/*
+[admin/restaurants.html] 맛집 관리 (관리자)
+컨트롤러: AdminViewController.restaurants() (GET /admin/restaurants)
+API: GET /api/admin/restaurants?page=0&size=20, DELETE /api/admin/restaurants/{id}
+*/-->
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('맛집 관리')}"></head>
+<body>
+<nav th:replace="~{fragments/layout :: header}"></nav>
+<main class="container mb-5">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="bi bi-building"></i> 맛집 관리</h2>
+        <a th:href="@{/admin}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left"></i> 대시보드</a>
+    </div>
+    <div class="card shadow-sm"><div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead class="table-light"><tr><th>ID</th><th>이름</th><th>카테고리</th><th>주소</th><th>등록자</th><th>등록일</th><th>관리</th></tr></thead>
+                <tbody id="restaurantTableBody"><tr><td colspan="7" class="text-center">로딩 중...</td></tr></tbody>
+            </table>
+        </div>
+        <nav id="restaurantsPagination" class="mt-3"><ul class="pagination justify-content-center"></ul></nav>
+    </div></div>
+</main>
+<th:block th:replace="~{fragments/layout :: footer}"></th:block>
+<script>
+    document.addEventListener('DOMContentLoaded', function () { loadRestaurants(0); });
+
+    function loadRestaurants(page) {
+        fetchJson('/api/admin/restaurants?page=' + page + '&size=20').then(function (r) {
+            const tbody = document.getElementById('restaurantTableBody');
+            const content = (r.body && r.body.content) || [];
+            if (content.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">맛집이 없습니다.</td></tr>';
+                return;
+            }
+            tbody.innerHTML = content.map(function (x) {
+                const id = Number(x.id);
+                return '<tr><td>' + id + '</td><td><a href="/restaurants/' + id + '">' + esc(x.name) + '</a></td>' +
+                    '<td>' + esc(x.categoryDisplayName || x.category) + '</td><td>' + esc(x.address) + '</td>' +
+                    '<td>' + esc(x.memberNickname) + '</td><td>' + esc(formatDateTime(x.createdAt)) + '</td>' +
+                    '<td><button class="btn btn-outline-danger btn-sm" onclick="deleteRestaurant(' + id + ')"><i class="bi bi-trash"></i></button></td></tr>';
+            }).join('');
+            renderPagination('restaurantsPagination', r.body.totalPages, r.body.currentPage, loadRestaurants);
+        });
+    }
+
+    function deleteRestaurant(id) {
+        if (!confirm('이 맛집을 삭제하시겠습니까? 관련 리뷰도 모두 삭제됩니다.')) return;
+        fetchJson('/api/admin/restaurants/' + id, { method: 'DELETE' }).then(function (r) {
+            alert(r.body.message || r.body.error || '처리되었습니다.');
+            if (r.ok) loadRestaurants(0);
+        });
+    }
+</script>
+</body>
+</html>

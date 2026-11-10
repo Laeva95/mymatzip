@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<!--/*
+[admin/reviews.html] 리뷰 관리 (관리자)
+컨트롤러: AdminViewController.reviews() (GET /admin/reviews)
+API: GET /api/admin/reviews, GET /api/admin/reviews/reported, DELETE /api/admin/reviews/{id}
+*/-->
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('리뷰 관리')}"></head>
+<body>
+<nav th:replace="~{fragments/layout :: header}"></nav>
+<main class="container mb-5">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="bi bi-flag"></i> 리뷰 관리</h2>
+        <a th:href="@{/admin}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left"></i> 대시보드</a>
+    </div>
+    <div class="btn-group mb-3" role="group">
+        <button type="button" id="btnAll" class="btn btn-primary btn-sm" onclick="loadReviews(false)">전체</button>
+        <button type="button" id="btnReported" class="btn btn-outline-danger btn-sm" onclick="loadReviews(true)">신고된 리뷰</button>
+    </div>
+    <div class="card shadow-sm"><div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead class="table-light"><tr><th>ID</th><th>내용</th><th>별점</th><th>작성자</th><th>맛집</th><th>작성일</th><th>관리</th></tr></thead>
+                <tbody id="reviewTableBody"><tr><td colspan="7" class="text-center">로딩 중...</td></tr></tbody>
+            </table>
+        </div>
+    </div></div>
+</main>
+<th:block th:replace="~{fragments/layout :: footer}"></th:block>
+<script>
+    let onlyReported = false;
+    document.addEventListener('DOMContentLoaded', function () { loadReviews(false); });
+
+    function loadReviews(reportedOnly) {
+        if (reportedOnly !== undefined) onlyReported = reportedOnly;
+        document.getElementById('btnAll').className = 'btn btn-sm ' + (onlyReported ? 'btn-outline-primary' : 'btn-primary');
+        document.getElementById('btnReported').className = 'btn btn-sm ' + (onlyReported ? 'btn-danger' : 'btn-outline-danger');
+        fetchJson(onlyReported ? '/api/admin/reviews/reported' : '/api/admin/reviews').then(function (r) {
+            const tbody = document.getElementById('reviewTableBody');
+            const list = Array.isArray(r.body) ? r.body : [];
+            if (list.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">리뷰가 없습니다.</td></tr>';
+                return;
+            }
+            tbody.innerHTML = list.map(function (x) {
+                const content = x.content && x.content.length > 50 ? x.content.substring(0, 50) + '...' : x.content;
+                return '<tr><td>' + Number(x.id) + '</td>' +
+                    '<td>' + (x.reported ? '<span class="badge bg-danger me-1">신고</span>' : '') + esc(content) + '</td>' +
+                    '<td class="rating-stars">' + renderStars(x.rating) + '</td>' +
+                    '<td>' + esc(x.memberNickname) + '</td><td>' + esc(x.restaurantName) + '</td>' +
+                    '<td>' + esc(formatDateTime(x.createdAt)) + '</td>' +
+                    '<td><button class="btn btn-outline-danger btn-sm" onclick="deleteReview(' + Number(x.id) + ')"><i class="bi bi-trash"></i></button></td></tr>';
+            }).join('');
+        });
+    }
+
+    function deleteReview(id) {
+        if (!confirm('이 리뷰를 삭제하시겠습니까?')) return;
+        fetchJson('/api/admin/reviews/' + id, { method: 'DELETE' }).then(function (r) {
+            alert(r.body.message || r.body.error || '처리되었습니다.');
+            if (r.ok) loadReviews();
+        });
+    }
+</script>
+</body>
+</html>
