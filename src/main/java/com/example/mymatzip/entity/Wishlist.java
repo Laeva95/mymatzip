@@ -39,7 +39,6 @@ import lombok.NoArgsConstructor;
 // Lombok의 기본 생성자 자동 생성 어노테이션
 // JPA가 DB 데이터를 객체로 변환할 때 필요한 빈 생성자를 만들어줌
 
-import java.lang.reflect.Member;
 import java.time.LocalDateTime;
 // 날짜+시간을 저장하는 자바 표준 클래스
 // 찜한 날짜(createdAt) 필드에 사용
