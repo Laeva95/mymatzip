@@ -16,10 +16,10 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class FreeModelGuard {
 
-    // @Value: application.properties 의 spring.ai.openai.chat.options.model 값을 이 필드에 넣는다.
+    // @Value: application.properties 의 spring.ai.openai.chat.model 값을 이 필드에 넣는다.
     //   넣는 일은 AutowiredAnnotationBeanPostProcessor 객체가 이 객체를 만든 직후에 한다.
     //   환경 변수 OPENROUTER_MODEL 이 있으면 그 값, 없으면 properties 에 적힌 기본값이 들어온다.
-    @Value("${spring.ai.openai.chat.options.model}")
+    @Value("${spring.ai.openai.chat.model}")
     private String model;
 
     // @PostConstruct: @Value 값이 들어간 다음 CommonAnnotationBeanPostProcessor 객체가 이 메서드를 한 번 호출한다.
