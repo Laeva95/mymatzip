@@ -27,24 +27,16 @@ public class ReplyApiController {
     }
 
     @PostMapping
-    public ResponseEntity<?> create(@Valid @RequestBody ReplyForm form,
-                                    @LoginMember Member loginMember) {
-        try {
-            ReplyResponse response = replyService.save(form, loginMember);
-            return ResponseEntity.status(HttpStatus.CREATED).body(response);
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
+    public ResponseEntity<ReplyResponse> create(@Valid @RequestBody ReplyForm form,
+                                                @LoginMember Member loginMember) {
+        ReplyResponse response = replyService.save(form, loginMember);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<?> delete(@PathVariable Long id,
-                                    @LoginMember Member loginMember) {
-        try {
-            replyService.delete(id, loginMember);
-            return ResponseEntity.ok(Map.of("message", "대댓글이 삭제되었습니다."));
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", e.getMessage()));
-        }
+    public ResponseEntity<Map<String, String>> delete(@PathVariable Long id,
+                                                      @LoginMember Member loginMember) {
+        replyService.delete(id, loginMember);
+        return ResponseEntity.ok(Map.of("message", "대댓글이 삭제되었습니다."));
     }
 }

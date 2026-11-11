@@ -1,135 +1,38 @@
-// ============================================================
-// [ReviewForm.java] 리뷰 작성 요청 데이터 전달 객체 (DTO)
-// ============================================================
-// 역할: 사용자가 리뷰 작성 화면에서 입력한 내용, 별점, 맛집 ID를 담는 "택배 상자"
-//
-// DTO(Data Transfer Object)란?
-//
-// DTO vs Entity 차이:
-//   Entity = DB 테이블과 직접 매핑되는 핵심 객체 (@Setter 금지, 불변 설계)
-//
-// 사용 흐름:
-//   1) 사용자가 맛집 상세 페이지에서 리뷰 내용 입력 + 별점 선택
-//   2) JavaScript의 fetch()가 JSON으로 서버에 전송
-//      예: { "content": "맛있어요!", "rating": 5, "restaurantId": 3 }
-//   3) Spring이 JSON을 ReviewForm 객체로 자동 변환 (@RequestBody)
-//   4) @Valid로 검증 → 통과하면 ReviewService.createReview()에 전달
-//   5) ReviewService에서 Review 엔티티로 변환 후 DB에 저장
-//
-// 검증(Validation) 어노테이션 정리:
-//   - @NotBlank : 빈 문자열 거부 (문자열 전용)
-//   - @NotNull  : null 값 거부 (모든 타입)
-//   - @Size     : 문자열 길이 제한
-//   - @Min/@Max : 숫자 최소값/최대값 제한
-// ============================================================
-
-// --- 패키지 선언 ---
-// 이 파일이 속한 폴더(패키지) 경로를 지정합니다.
-// com.example.mymatzip.dto = "DTO(데이터 전달 객체)" 계층에 해당
 package com.example.mymatzip.dto;
 
-// --- import 영역 (외부 클래스 가져오기) ---
-
-// jakarta.validation.constraints 패키지의 모든 검증 어노테이션 가져오기
-// 여기에는 @NotBlank, @NotNull, @Size, @Min, @Max 등이 포함됩니다.
-// ★ 와일드카드(*)로 가져오면 필요한 어노테이션을 개별 import 없이 사용 가능
-//   - @NotBlank : 빈 문자열("") 또는 공백만 있는 문자열("  ") 거부
-//   - @NotNull  : null 값만 거부
-//   - @Size     : 문자열의 최소/최대 길이 검증
-//   - @Min      : 숫자의 최소값 검증 (예: 별점 최소 1점)
-//   - @Max      : 숫자의 최대값 검증 (예: 별점 최대 5점)
 import jakarta.validation.constraints.*;
-
-// @Getter 가져오기 — Lombok이 모든 필드의 getter 메서드를 자동 생성
-// 예: getContent(), getRating(), getRestaurantId()
 import lombok.Getter;
-
-// @Setter 가져오기 — Lombok이 모든 필드의 setter 메서드를 자동 생성
-// 예: setContent(), setRating(), setRestaurantId()
-// Spring이 JSON → 객체 변환 시 setter를 사용하므로 DTO에는 필수입니다.
 import lombok.Setter;
 
-// @Getter 어노테이션 — 모든 필드에 대해 getter 메서드를 자동 생성
-// 이 어노테이션이 있으면 getContent(), getRating() 등의 메서드가 자동으로 만들어집니다.
 @Getter
-
-// @Setter 어노테이션 — 모든 필드에 대해 setter 메서드를 자동 생성
-// 이 어노테이션이 있으면 setContent(), setRating() 등의 메서드가 자동으로 만들어집니다.
 @Setter
-
-// ReviewForm 클래스 선언
-// DTO(Data Transfer Object) = 리뷰 작성 데이터를 전달하기 위한 "택배 상자" 역할의 클래스
 public class ReviewForm {
 
-    // ──────────────────────────────────────────────────────
-    // 리뷰 내용 필드
-    // ──────────────────────────────────────────────────────
-    // [타입] String — 문자열 (예: "여기 돈까스 정말 맛있어요! 추천합니다.")
-    // [용도] 사용자가 리뷰 작성 폼에 입력한 리뷰 내용(본문)을 저장
-    // [DB 매핑] → Review 엔티티의 content 필드로 전달되어 DB에 저장됨
-    //
-    // @NotBlank: 빈 값 검증 → null, "", "  " 모두 거부
-    //   → 검증 실패 시 "리뷰 내용을 입력해주세요." 메시지 반환
-    // @Size(max=1000): 최대 길이 검증 → 1000자 이하만 허용
-    //   → 너무 긴 리뷰를 방지하기 위한 제한
-    //   → 검증 실패 시 "리뷰는 1000자 이내로 입력해주세요." 메시지 반환
-    // ──────────────────────────────────────────────────────
-    @NotBlank(message = "리뷰 내용을 입력해주세요.")                          // 빈 값 검증 — 비어있으면 에러
-    @Size(max = 1000, message = "리뷰는 1000자 이내로 입력해주세요.")          // 길이 검증 — 최대 1000자
-    private String content;                                                  // 리뷰 내용 (예: "여기 돈까스 정말 맛있어요!")
+    // 리뷰 내용 (필수)
+    @NotBlank(message = "리뷰 내용을 입력해주세요.")
+    @Size(max = 1000, message = "리뷰는 1000자 이내로 입력해주세요.")
+    private String content;
 
-    // ──────────────────────────────────────────────────────
-    // 별점 필드
-    // ──────────────────────────────────────────────────────
-    // [타입] Integer — 정수 래퍼 클래스 (1 ~ 5 사이의 값)
-    //   ★ int(기본형) 대신 Integer(래퍼 클래스)를 사용하는 이유:
-    //     int는 null을 담을 수 없어서 @NotNull 검증이 불가능합니다.
-    //     Integer는 null을 담을 수 있어서 "별점을 선택하지 않은 상태"를 표현 가능합니다.
-    // [용도] 사용자가 별점 UI(★★★★★)에서 선택한 점수를 저장
-    // [DB 매핑] → Review 엔티티의 rating 필드로 전달되어 DB에 저장됨
-    //
-    // @NotNull: null 검증 → 별점을 선택하지 않으면 거부
-    //   → 검증 실패 시 "별점을 선택해주세요." 메시지 반환
-    // @Min(1): 최소값 검증 → 1점 미만 불가
-    //   → 검증 실패 시 "별점은 1점 이상이어야 합니다." 메시지 반환
-    // @Max(5): 최대값 검증 → 5점 초과 불가
-    //   → 검증 실패 시 "별점은 5점 이하여야 합니다." 메시지 반환
-    // ──────────────────────────────────────────────────────
-    @NotNull(message = "별점을 선택해주세요.")                   // null 검증 — 선택하지 않으면 에러
-    @Min(value = 1, message = "별점은 1점 이상이어야 합니다.")    // 최소값 검증 — 1점 이상
-    @Max(value = 5, message = "별점은 5점 이하여야 합니다.")      // 최대값 검증 — 5점 이하
-    private Integer rating;                                     // 별점 (1~5 사이의 정수, 예: 4)
+    // 별점 (필수, 1~5점)
+    @NotNull(message = "별점을 선택해주세요.")
+    @Min(value = 1, message = "별점은 1점 이상이어야 합니다.")
+    @Max(value = 5, message = "별점은 5점 이하여야 합니다.")
+    private Integer rating;
 
-    // ──────────────────────────────────────────────────────
-    // 맛집 ID 필드
-    // ──────────────────────────────────────────────────────
-    // [타입] Long — 정수(큰 숫자) 래퍼 클래스 (예: 3L, 15L)
-    //   ★ long(기본형) 대신 Long(래퍼 클래스)을 사용하는 이유:
-    //     long은 null을 담을 수 없어서 @NotNull 검증이 불가능합니다.
-    //     Long은 null을 담을 수 있어서 "맛집 ID가 없는 상태"를 표현 가능합니다.
-    // [용도] 리뷰를 작성할 대상 맛집의 고유 번호(ID)를 저장
-    //   → 이 값으로 어떤 맛집에 대한 리뷰인지 식별합니다.
-    // [DB 매핑] → Review 엔티티의 restaurant 연관관계(FK)로 변환됨
-    //   → ReviewService에서 restaurantId로 Restaurant 엔티티를 조회한 후
-    //     Review 엔티티에 연결합니다.
-    //
-    // @NotNull: null 검증 → 맛집 ID가 없으면 거부
-    //   → 검증 실패 시 "맛집 ID가 필요합니다." 메시지 반환
-    //   → 프론트엔드에서 자동으로 전송하는 값이므로 사용자가 직접 입력하지 않음
-    // ──────────────────────────────────────────────────────
-    @NotNull(message = "맛집 ID가 필요합니다.")                  // null 검증 — 맛집 ID가 없으면 에러
-    private Long restaurantId;                                  // 리뷰 대상 맛집의 고유 번호 (예: 3)
+    // 맛집 ID (필수)
+    @NotNull(message = "맛집 ID가 필요합니다.")
+    private Long restaurantId;
 
     // ──────────────────────────────────────────────────────
     // [Phase 7] 리뷰 이미지 URL 필드 (선택 입력)
     // ──────────────────────────────────────────────────────
-    // [타입] String — 문자열 (예: "/uploads/a1b2c3d4-...-e5f6.jpg") 또는 null
-    // [용도] 리뷰에 첨부할 이미지의 URL을 저장
-    //   → 이미지 업로드 API(POST /api/files/upload)를 먼저 호출하여 URL을 받고,
-    //     해당 URL을 이 필드에 담아서 리뷰 작성 요청에 포함시킵니다.
-    //
-    // ★ 검증 어노테이션이 없는 이유:
-    //   이미지는 선택 입력(optional) 항목이므로 첨부하지 않아도 됩니다.
+    // ★ @Size와 @Pattern은 값이 null일 경우 검증을 통과시킵니다.
+    //   따라서 선택 입력(optional)을 유지하면서도 잘못된 경로/길이 초과를 방어할 수 있습니다.
     // ──────────────────────────────────────────────────────
-    private String imageUrl;                                    // 리뷰 이미지 URL (선택 입력)
+    @Size(max = 500, message = "이미지 경로가 너무 깁니다.")
+    @Pattern(
+            regexp = "^/uploads/[a-zA-Z0-9\\-]+\\.(jpg|jpeg|png|gif|webp)$",
+            message = "올바른 이미지 경로 형식이 아닙니다."
+    )
+    private String imageUrl;
 }

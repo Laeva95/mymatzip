@@ -206,7 +206,9 @@ public class Review {
     // 리뷰에 사진을 첨부하면 이 필드에 파일 경로가 저장됩니다.
     // 예: "/uploads/a1b2c3d4-...-e5f6.jpg"
     // 예: null (이미지를 첨부하지 않은 경우)
+    @Column(length = 500) // 또는 1000
     private String imageUrl;
+
 
     // [Phase 10] 신고 여부 (기본값: false)
     // 다른 사용자가 이 리뷰를 신고하면 true로 변경됩니다.
