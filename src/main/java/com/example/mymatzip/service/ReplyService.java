@@ -8,8 +8,10 @@ import com.example.mymatzip.entity.Review;
 import com.example.mymatzip.repository.ReplyRepository;
 import com.example.mymatzip.repository.ReviewRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 
@@ -44,10 +46,10 @@ public class ReplyService {
     @Transactional
     public void delete(Long id, Member loginMember) {
         Reply reply = replyRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("대댓글을 찾을 수 없습니다."));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "대댓글을 찾을 수 없습니다."));
 
         if (!reply.getMember().getId().equals(loginMember.getId())) {
-            throw new IllegalArgumentException("삭제 권한이 없습니다.");
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "삭제 권한이 없습니다.");
         }
 
         replyRepository.delete(reply);
