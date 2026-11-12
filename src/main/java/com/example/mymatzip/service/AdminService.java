@@ -75,7 +75,8 @@ public class AdminService {
     public Map<String, Long> getStats() {
         Map<String, Long> stats = new HashMap<>();
         stats.put("totalMembers", memberRepository.count());         // 전체 회원 수
-        stats.put("totalRestaurants", restaurantRepository.count()); // 전체 맛집 수
+        //[변경]2026.11.11권성애 (수정: 기본 count() → 삭제 안 된 맛집 수)
+        stats.put("totalRestaurants", restaurantRepository.countByDeletedAtIsNull()); // 전체 맛집 수
         stats.put("totalReviews", reviewRepository.count());         // 전체 리뷰 수
         return stats;
     }
@@ -93,7 +94,8 @@ public class AdminService {
     // 동작: 모든 맛집 목록을 페이지별로 조회
     // 사용처: 관리자 > 맛집 관리 페이지
     public Page<Restaurant> findAllRestaurants(Pageable pageable) {
-        return restaurantRepository.findAll(pageable);
+        //[변경]2026.11.11권성애 findAll(Pageable)
+        return restaurantRepository.findAllByDeletedAtIsNull(pageable);
     }
 
     // ── 전체 리뷰 목록 조회 ──────────────────────────────────────

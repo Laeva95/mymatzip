@@ -86,6 +86,13 @@ public class Image {
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
+    // ── [추가]2026.11.12권성애 소프트 삭제 시각 ──
+    // null = 사용 중, 값이 있음 = 맛집 삭제 · 사진 교체로 더 이상 쓰지 않는 사진 (행은 남김)
+    // S3 파일과 이 행은 코드에서 지우지 않고 개발자가 직접 삭제 → 이 칸이 "지울 사진 목록"이 됨
+    //   SELECT file_path, deleted_at FROM image WHERE deleted_at IS NOT NULL;
+    // nullable 이라 기존 행은 자동으로 null (팀장이 테이블 drop 후 create 모드 재시작하면 칸이 생김)
+    private LocalDateTime deletedAt;
+
     // ── 생성자 (Builder 패턴) ──
     // @Builder: Image.builder().originalFileName("맛집.jpg").storedFileName("uuid.jpg")...build()
     // createdAt은 자동으로 현재 시간이 설정됩니다.
@@ -98,5 +105,15 @@ public class Image {
         this.fileSize = fileSize;
         this.contentType = contentType;
         this.createdAt = LocalDateTime.now();
+    }
+
+    // ── [추가]2026.11.12권성애 소프트 삭제 (Restaurant.softDelete() 와 같은 이름) ──
+    // 호출: FileService.deleteImageRecord() ← RestaurantService.delete() · update() (같은 트랜잭션)
+    // @Transactional 안에서 값만 바꾸면 변경 감지로 UPDATE image SET deleted_at = ? WHERE id = ? 자동 실행
+    // 이미 삭제 표시가 있으면 그대로 둠 → 처음 지운 시각 유지 (두 번 불려도 안전)
+    public void softDelete() {
+        if (this.deletedAt == null) {
+            this.deletedAt = LocalDateTime.now();
+        }
     }
 }

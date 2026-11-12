@@ -40,6 +40,8 @@ package com.example.mymatzip.controller.view;
 // Category: 맛집 카테고리 열거형(enum)
 // 예: KOREAN(한식), JAPANESE(일식), CHINESE(중식), WESTERN(양식) 등
 // 목록 페이지에서 카테고리 필터, 등록/수정 폼에서 카테고리 선택에 사용
+import com.example.mymatzip.dto.PageResponse;
+import com.example.mymatzip.dto.RestaurantResponse;
 import com.example.mymatzip.entity.Category;
 
 // RestaurantService: 맛집 관련 비즈니스 로직 서비스
@@ -61,6 +63,9 @@ import com.example.mymatzip.config.security.LoginMember;
 import lombok.RequiredArgsConstructor;
 
 // @Controller: 이 클래스가 뷰(View) 컨트롤러임을 선언 (타임리프 화면 이름 반환)
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Controller;
 
 // Model: Controller에서 타임리프 화면으로 데이터를 전달하는 "데이터 가방"
@@ -79,6 +84,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 // @RequestParam: URL 쿼리 파라미터 값을 추출하는 어노테이션
 // 예: /restaurants?category=KOREAN → @RequestParam Category category
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.beans.factory.annotation.Value;   // [추가]2026.11.12권성애
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 // ── @Controller 어노테이션 ──────────────────────────────────
 // 이 클래스가 뷰(View) 컨트롤러임을 선언
@@ -111,6 +118,23 @@ public class RestaurantViewController {
     // 맛집 상세 페이지에서 현재 사용자가 이 맛집을 찜했는지 확인할 때 사용
     private final WishlistService wishlistService;
 
+
+    // ── [추가]2026.11.12권성애 설정 값 (final 이 아니라 @RequiredArgsConstructor 생성자에 들어가지 않고 @Value 로 따로 채워짐) ──
+    // 한 페이지에 보여 줄 맛집 수 — application.properties: app.restaurant.page-size=12 (없으면 12)
+    @Value("${app.restaurant.page-size:12}")
+    private int pageSize;
+
+    // 페이지 번호를 몇 개씩 묶어 보여 줄지 — app.restaurant.page-block=10 (없으면 10) → « 1 2 … 10 »
+    @Value("${app.restaurant.page-block:10}")
+    private int pageBlock;
+
+
+    // [추가]2026.11.12권성애 카카오 지도 JS 키 (application.properties kakao.map.js-key, 없으면 빈 값)
+    //   form.html 이 지도 SDK 스크립트를 불러올 때 사용 → 등록 · 수정 화면에 model 로 넘김
+    @Value("${kakao.map.js-key:}")
+    private String kakaoJsKey;
+
+
     // ── GET /restaurants ────────────────────────────────────
     // 맛집 목록 페이지: 전체 맛집 또는 카테고리별 맛집 목록 화면
     // 요청 예시 1: GET http://localhost:8080/restaurants (전체 목록)
@@ -127,22 +151,75 @@ public class RestaurantViewController {
     //   - Model model: 타임리프 화면에 데이터를 전달하기 위한 객체
     // 반환값: String "restaurant/list"
     //   → templates/restaurant/list.html 렌더링
+    // [변경]2026.11.12권성애 (페이징: page · RedirectAttributes 매개변수 추가)
+    //   - @RequestParam(required = false) String page: 보고 싶은 페이지 번호 (1부터, 없으면 1)
+    //     숫자가 아닌 값(?page=abc)도 직접 검사하려고 int 가 아니라 String 으로 받음
+    //     (int 로 받으면 스프링이 먼저 400 오류 화면을 냄)
+    //   - RedirectAttributes redirectAttributes: 잘못된 page 일 때 1페이지로 보내면서 안내 문구(alertMsgNoPage)를 한 번만 넘김
     @GetMapping
-    public String list(@RequestParam(required = false) Category category, Model model) {
+    public String list(@RequestParam(required = false) Category category,
+                       @RequestParam(required = false) String page,
+                       Model model,
+                       RedirectAttributes redirectAttributes) {
+        // ── [추가]2026.11.12권성애 0단계: page 값 검사 ─────────────────────
+        // 없으면 1페이지, 숫자가 아니거나 1보다 작으면 → 안내 후 1페이지로 redirect
+        int pageNumber = 1;
+        if (page != null && !page.isBlank()) {
+            try {
+                pageNumber = Integer.parseInt(page.trim());
+            } catch (NumberFormatException e) {
+                pageNumber = 0;   // 숫자가 아님 → 아래에서 잘못된 페이지로 처리
+            }
+        }
+        // 1페이지로 돌아갈 주소 (카테고리를 고른 상태면 카테고리는 유지)
+        String firstPageUrl = (category != null) ? "redirect:/restaurants?category=" + category.name() : "redirect:/restaurants";
+        if (pageNumber < 1) {
+            redirectAttributes.addFlashAttribute("alertMsgNoPage", "없는 페이지입니다. 1페이지로 이동합니다.");
+            return firstPageUrl;
+        }
+
         // ── 1단계: 카테고리 필터링 여부에 따라 맛집 목록 조회 ─
+        // [변경]2026.11.12권성애 (전체 조회 → 페이지 조회: 한 페이지 pageSize 개, 최신 등록순)
+        //   PageRequest.of(페이지번호, 개수, 정렬): 스프링 페이지 번호는 0부터라 화면 번호(1부터)에서 1을 뺌
+        //   정렬: 최신 등록순(createdAt 내림차순), 같은 시각이면 id 내림차순 (배치로 같은 시각에 많이 들어가도 순서가 매번 같게)
+        //   서비스의 findByCategory(category, pageable) · findAll(pageable) 은 이미 있던 페이징 메서드 (삭제된 맛집 제외)
+        Pageable pageable = PageRequest.of(pageNumber - 1, pageSize,
+                Sort.by(Sort.Direction.DESC, "createdAt").and(Sort.by(Sort.Direction.DESC, "id")));
+        PageResponse<RestaurantResponse> result;
         // category가 null이 아니면 (카테고리가 지정된 경우)
         if (category != null) {
-            // 해당 카테고리의 맛집만 조회하여 "restaurants"로 Model에 담음
-            // 타임리프 화면에서 ${restaurants}로 접근 가능
-            model.addAttribute("restaurants", restaurantService.findByCategory(category));
+            // 해당 카테고리의 맛집만 조회 ([변경]2026.11.12권성애 페이지 단위)
+            result = restaurantService.findByCategory(category, pageable);
 
             // 현재 선택된 카테고리를 "selectedCategory"로 Model에 담음
             // 타임리프 화면에서 카테고리 버튼의 활성화 상태를 표시하는 데 사용
             model.addAttribute("selectedCategory", category);
         } else {
-            // 카테고리가 지정되지 않은 경우 → 전체 맛집 목록 조회
-            model.addAttribute("restaurants", restaurantService.findAll());
+            // 카테고리가 지정되지 않은 경우 → 전체 맛집 목록 조회 ([변경]2026.11.12권성애 페이지 단위)
+            result = restaurantService.findAll(pageable);
         }
+
+        // [추가]2026.11.12권성애 전체 페이지보다 큰 번호(?page=999) → 안내 후 1페이지로 (맛집이 하나도 없으면 1페이지는 그대로 보여 줌)
+        if (pageNumber > 1 && pageNumber > result.getTotalPages()) {
+            redirectAttributes.addFlashAttribute("alertMsgNoPage", "없는 페이지입니다. 1페이지로 이동합니다.");
+            return firstPageUrl;
+        }
+
+        // "restaurants"로 Model에 담음 — 타임리프 화면에서 ${restaurants}로 접근 (이름 그대로)
+        // [변경]2026.11.12권성애 (전체 목록 → 이번 페이지 목록만: PageResponse.getContent())
+        model.addAttribute("restaurants", result.getContent());
+
+        // ── [추가]2026.11.12권성애 1-1단계: 페이지 번호 정보 (list.html 아래쪽 « 1 2 … 10 ») ─
+        //   currentPage : 지금 페이지 (1부터)
+        //   totalPages  : 전체 페이지 수 (맛집이 없으면 0)
+        //   startPage · endPage : 지금 보여 줄 번호 묶음 (pageBlock 개씩)
+        //     예) pageBlock=10, 지금 13페이지 → 11 ~ 20 (전체가 15페이지면 11 ~ 15)
+        int startPage = ((pageNumber - 1) / pageBlock) * pageBlock + 1;
+        int endPage = Math.min(startPage + pageBlock - 1, result.getTotalPages());
+        model.addAttribute("currentPage", pageNumber);
+        model.addAttribute("totalPages", result.getTotalPages());
+        model.addAttribute("startPage", startPage);
+        model.addAttribute("endPage", endPage);
 
         // ── 2단계: 모든 카테고리 목록을 Model에 담기 ─────────
         // Category.values(): Category enum의 모든 값을 배열로 반환
@@ -228,6 +305,7 @@ public class RestaurantViewController {
         // → templates/restaurant/form.html 렌더링
         // 등록 폼과 수정 폼이 같은 타임리프 화면 파일(form.html)을 공유합니다.
         // 등록 시에는 "restaurant" 데이터가 Model에 없으므로 빈 폼이 표시됩니다.
+        model.addAttribute("kakaoJsKey", kakaoJsKey);   // [추가]2026.11.12권성애 카카오 지도 JS 키
         return "restaurant/form";
     }
 
@@ -257,6 +335,7 @@ public class RestaurantViewController {
         // Category.values(): 모든 카테고리 값을 배열로 가져옴
         // 타임리프 화면의 카테고리 선택 드롭다운에서 기존 선택값을 표시하는 데 사용
         model.addAttribute("categories", Category.values());
+        model.addAttribute("kakaoJsKey", kakaoJsKey);   // [추가]2026.11.12권성애 카카오 지도 JS 키
 
         // ── 3단계: 타임리프 화면 이름 반환 ─────────────────────────
         // → templates/restaurant/form.html 렌더링

@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300" role="img" aria-label="기타 기본 이미지">
+<rect width="400" height="300" fill="#ECE9F5"/>
+<ellipse cx="200" cy="176" rx="130" ry="16" fill="#D8D3EA"/>
+<path d="M88 168 Q92 88 200 84 Q308 88 312 168 Z" fill="#C9C4DC"/>
+<path d="M104 160 Q110 100 200 96" fill="none" stroke="#E6E2F2" stroke-width="8" stroke-linecap="round"/>
+<rect x="76" y="164" width="248" height="14" rx="7" fill="#A9A2C6"/>
+<circle cx="200" cy="78" r="12" fill="#A9A2C6"/>
+<line x1="44" y1="104" x2="44" y2="200" stroke="#8E8E88" stroke-width="6" stroke-linecap="round"/>
+<path d="M34 104 v26 M44 104 v26 M54 104 v26 M34 130 q10 10 20 0" fill="none" stroke="#8E8E88" stroke-width="4" stroke-linecap="round"/>
+<path d="M356 104 q14 30 0 54 L356 200" fill="none" stroke="#8E8E88" stroke-width="6" stroke-linecap="round"/>
+<text x="200" y="250" text-anchor="middle" font-size="30" font-weight="700" fill="#4A3F73" font-family="Noto Sans KR, Apple SD Gothic Neo, Malgun Gothic, sans-serif">기타</text>
+</svg>
