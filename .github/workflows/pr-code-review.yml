@@ -1,0 +1,108 @@
+
+name: PR Code Review Helper
+
+on:
+  pull_request:
+    branches: [main, develop]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  review-check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Analyze changes
+        id: changes
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          git fetch origin "$BASE_SHA" "$HEAD_SHA"
+
+          CHANGED_FILES=$(git diff --name-only "$BASE_SHA" "$HEAD_SHA" | wc -l)
+          ADDED_LINES=$(git diff --numstat "$BASE_SHA" "$HEAD_SHA" | awk '{sum += $1} END {print sum+0}')
+          DELETED_LINES=$(git diff --numstat "$BASE_SHA" "$HEAD_SHA" | awk '{sum += $2} END {print sum+0}')
+          TOTAL_CHANGES=$((ADDED_LINES + DELETED_LINES))
+
+          echo "changed_files=$CHANGED_FILES" >> "$GITHUB_OUTPUT"
+          echo "added_lines=$ADDED_LINES" >> "$GITHUB_OUTPUT"
+          echo "deleted_lines=$DELETED_LINES" >> "$GITHUB_OUTPUT"
+          echo "total_changes=$TOTAL_CHANGES" >> "$GITHUB_OUTPUT"
+
+      - name: Post PR summary comment
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const changedFiles = Number('${{ steps.changes.outputs.changed_files }}');
+            const addedLines = Number('${{ steps.changes.outputs.added_lines }}');
+            const deletedLines = Number('${{ steps.changes.outputs.deleted_lines }}');
+            const totalChanges = Number('${{ steps.changes.outputs.total_changes }}');
+
+            let emoji = '✅';
+            let message = '적절한 크기의 PR입니다.';
+
+            if (totalChanges > 500) {
+              emoji = '⚠️';
+              message = 'PR이 너무 큽니다! 작은 단위로 나눠주세요.';
+            } else if (totalChanges > 300) {
+              emoji = '🟡';
+              message = 'PR 크기가 조금 큽니다. 가능하면 나눠주세요.';
+            }
+
+            const marker = '<!-- mymatzip-pr-review-helper -->';
+
+            const body = `${marker}
+            ## ${emoji} PR 변경 사항 요약
+
+            | 항목 | 수치 |
+            |------|------|
+            | 📁 변경된 파일 수 | **${changedFiles}개** |
+            | ➕ 추가된 줄 | **${addedLines}줄** |
+            | ➖ 삭제된 줄 | **${deletedLines}줄** |
+            | 📊 총 변경량 | **${totalChanges}줄** |
+
+            ${message}
+
+            ---
+            🤖 *자동 생성된 코멘트입니다.*`;
+
+            const params = {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number
+            };
+
+            const comments = await github.paginate(
+              github.rest.issues.listComments,
+              { ...params, per_page: 100 }
+            );
+
+            const previous = comments.find(
+              comment =>
+                comment.user?.type === 'Bot' &&
+                comment.body?.includes(marker)
+            );
+
+            if (previous) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: previous.id,
+                body
+              });
+            } else {
+              await github.rest.issues.createComment({
+                ...params,
+                body
+              });
+            }
