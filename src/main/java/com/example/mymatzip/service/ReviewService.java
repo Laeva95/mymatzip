@@ -174,7 +174,9 @@ public class ReviewService {
         // form.getRestaurantId(): 리뷰 폼에 담긴 맛집 ID (어떤 맛집에 리뷰를 다는지)
         // .orElseThrow(): 맛집이 존재하지 않으면 예외 발생
         // → 존재하지 않는 맛집에는 리뷰를 작성할 수 없으므로 사전 확인
-        Restaurant restaurant = restaurantRepository.findById(form.getRestaurantId())
+
+        //[변경]2026.11.11권성애 (수정: findById → 삭제 안 된 맛집만)
+        Restaurant restaurant = restaurantRepository.findByIdAndDeletedAtIsNull(form.getRestaurantId())
                 .orElseThrow(() -> new IllegalArgumentException("맛집을 찾을 수 없습니다."));
 
         // [2단계] Review 엔티티 객체 생성 (빌더 패턴 사용)

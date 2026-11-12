@@ -52,6 +52,11 @@ import com.example.mymatzip.repository.RestaurantRepository;
 //                   → 맛집의 평균 평점을 계산하기 위해 사용
 import com.example.mymatzip.repository.ReviewRepository;
 
+// [추가]2026.11.12권성애 비교용 주소 · 같은 가게 이름 판단 (공공 API 배치와 같은 규칙을 그대로 사용)
+import com.example.mymatzip.dto.publicapi.PublicRestaurantRow;
+// [추가]2026.11.12권성애 같은 이름 + 주소 유니크 키 위반 (삭제된 맛집 포함) → 안내 문구로 바꾸기
+import org.springframework.dao.DataIntegrityViolationException;
+
 // @RequiredArgsConstructor: final 필드에 대한 생성자를 자동 생성해주는 Lombok 어노테이션
 // → 직접 생성자를 작성하지 않아도 의존성 주입(DI)이 자동으로 이루어짐
 import lombok.RequiredArgsConstructor;
@@ -63,6 +68,9 @@ import org.springframework.stereotype.Service;
 // @Transactional: DB 작업을 하나의 트랜잭션(작업 단위)으로 묶어주는 어노테이션
 // → 작업 도중 에러 발생 시 모든 변경사항을 자동으로 되돌림 (rollback)
 import org.springframework.transaction.annotation.Transactional;
+
+// [변경]2026.11.12권성애 커밋 뒤 S3 사진 삭제용 import(TransactionSynchronization · TransactionSynchronizationManager) 없앰
+//   사진 파일은 코드에서 지우지 않고 개발자가 AWS 콘솔에서 직접 삭제
 
 // [Phase 5] Page, Pageable 가져오기 — 페이징 기능을 위한 클래스
 // Pageable = 페이지 요청 정보 (몇 번째 페이지, 한 페이지에 몇 개)
@@ -106,6 +114,10 @@ public class RestaurantService {
     //       (맛집 응답 DTO에 평균 평점을 포함시키기 위함)
     private final ReviewRepository reviewRepository;
 
+    // [추가]2026.11.11권성애 fileService: 맛집 삭제 · 사진 교체 때 옛 사진 정리 (image 테이블 기록 삭제 + S3 파일 삭제)
+    //   FileService는 같은 service 패키지라 import 필요 없음
+    private final FileService fileService;
+
     // ─── 전체 맛집 목록 조회 메서드 ───────────────────────────
 
     // @Transactional이 없음 → 클래스 레벨의 readOnly = true 적용
@@ -125,7 +137,7 @@ public class RestaurantService {
         //   → this::toResponse는 아래에 정의된 toResponse() 메서드를 참조
         //   → 각 맛집에 대해 평균 평점을 계산하여 DTO에 포함시킴
         // .toList(): 스트림의 결과를 다시 List(목록)로 변환하여 반환
-        return restaurantRepository.findAll().stream()
+        return restaurantRepository.findAllByDeletedAtIsNull().stream()   // [추가]2026.11.11권성애 (수정: findAll → 삭제된 맛집 제외)
                 .map(this::toResponse)
                 .toList();
     }
@@ -143,7 +155,7 @@ public class RestaurantService {
     // └─────────────────────────────────────────────────────────────────────┘
     public PageResponse<RestaurantResponse> findAll(Pageable pageable) {
         // restaurantRepository.findAll(pageable): 해당 페이지의 맛집만 DB에서 조회
-        Page<Restaurant> page = restaurantRepository.findAll(pageable);
+        Page<Restaurant> page = restaurantRepository.findAllByDeletedAtIsNull(pageable);   // [추가]2026.11.11권성애 (수정: 삭제된 맛집 제외)
 
         // 페이지 내 맛집 엔티티들을 응답 DTO로 변환
         List<RestaurantResponse> content = page.getContent().stream()
@@ -168,7 +180,7 @@ public class RestaurantService {
     public List<RestaurantResponse> findByCategory(Category category) {
         // restaurantRepository.findByCategory(category): DB에서 특정 카테고리의 맛집만 조회
         // .stream().map(this::toResponse).toList(): 각 엔티티를 DTO로 변환 후 리스트로 반환
-        return restaurantRepository.findByCategory(category).stream()
+        return restaurantRepository.findByCategoryAndDeletedAtIsNull(category).stream()   // [추가]2026.11.11권성애 (수정: 삭제된 맛집 제외)
                 .map(this::toResponse)
                 .toList();
     }
@@ -182,7 +194,7 @@ public class RestaurantService {
     // │ 리턴값:  PageResponse<RestaurantResponse> — 페이징 정보 + 맛집 DTO   │
     // └─────────────────────────────────────────────────────────────────────┘
     public PageResponse<RestaurantResponse> findByCategory(Category category, Pageable pageable) {
-        Page<Restaurant> page = restaurantRepository.findByCategory(category, pageable);
+        Page<Restaurant> page = restaurantRepository.findByCategoryAndDeletedAtIsNull(category, pageable);   // [추가]2026.11.11권성애 (수정: 삭제된 맛집 제외)
         List<RestaurantResponse> content = page.getContent().stream()
                 .map(this::toResponse)
                 .toList();
@@ -242,6 +254,23 @@ public class RestaurantService {
 
         // [1단계] Restaurant 엔티티 객체 생성 (빌더 패턴 사용)
         // 빌더 패턴: .속성명(값) 형태로 가독성 좋게 객체를 생성하는 디자인 패턴
+        // [추가]2026.11.12권성애 등록할 때만 필수: 소개글 · 대표메뉴 · 영업시간 (수정할 때는 선택)
+        //   등록 · 수정이 같은 RestaurantForm 이라 @NotBlank 대신 여기서 검사
+        //   (공공 API 맛집은 소개글 · 영업시간이 비어 있어서 관리자가 수정할 때 막히지 않게)
+        if (form.getDescription() == null || form.getDescription().isBlank()) {
+            throw new IllegalArgumentException("소개글을 입력해주세요.");
+        }
+        if (form.getRepresentativeMenu() == null || form.getRepresentativeMenu().isBlank()) {
+            throw new IllegalArgumentException("대표메뉴를 입력해주세요.");
+        }
+        if (form.getBusinessHours() == null || form.getBusinessHours().isBlank()) {
+            throw new IllegalArgumentException("영업시간을 입력해주세요.");
+        }
+
+        // [추가]2026.11.12권성애 저장 전에 같은 가게가 있는지 (같은 주소 + 이름이 같거나 포함) → 있으면 안내 후 막음
+        String address = validAddress(form.getAddress());
+        checkIfSameStoreAtSave(form.getName(), address, null);
+
         Restaurant restaurant = Restaurant.builder()
                 // .name(): 사용자가 입력한 맛집 이름 설정
                 // 원문 그대로 저장 (XSS 방어는 출력할 때: 타임리프 th:text, common.js esc())
@@ -249,7 +278,7 @@ public class RestaurantService {
                 // .category(): 사용자가 선택한 카테고리 설정 (한식, 중식 등)
                 .category(form.getCategory())
                 // .address(): 사용자가 입력한 맛집 주소 설정 
-                .address(form.getAddress())
+                .address(address)   // [추가]2026.11.11권성애 (수정: "부산광역시"로 통일, 부산 밖 주소는 막음) // [변경]2026.11.12권성애 (address 변수로) 위에서 검사한 값
                 // .phone(): 사용자가 입력한 맛집 전화번호 설정
                 .phone(form.getPhone())
                 // .description(): 사용자가 입력한 맛집 설명 설정 
@@ -258,13 +287,25 @@ public class RestaurantService {
                 .member(loginMember)
                 // [Phase 7] .imageUrl(): 대표 이미지 URL 설정 (선택값)
                 .imageUrl(validImageUrl(form.getImageUrl()))   // [수정] 업로드 주소 형식만 허용
+                // [추가]2026.11.11권성애 대표메뉴 · 영업시간 · 위도 · 경도 (출처는 넣지 않음 → 엔티티 기본값 MANUAL "직접등록")
+                .representativeMenu(form.getRepresentativeMenu())
+                .businessHours(form.getBusinessHours())
+                .lat(form.getLat())
+                .lng(form.getLng())
                 // .build(): 위에서 설정한 값들로 최종 Restaurant 객체를 생성
                 .build();
 
         // [2단계] DB에 맛집 정보 저장
         // restaurantRepository.save(restaurant): DB의 restaurant 테이블에 INSERT(삽입)
         // saved: DB가 자동 생성한 ID가 포함된 Restaurant 객체
-        Restaurant saved = restaurantRepository.save(restaurant);
+        // [변경]2026.11.12권성애 (save → saveAndFlush) 유니크 키 오류를 여기서 바로 받아 안내 문구로 바꿈
+        //   save() 는 커밋할 때 INSERT 해서 오류가 컨트롤러 밖(500)으로 나감 → saveAndFlush 로 지금 INSERT
+        Restaurant saved;
+        try {
+            saved = restaurantRepository.saveAndFlush(restaurant);
+        } catch (DataIntegrityViolationException e) {
+            throw new IllegalArgumentException("같은 이름과 주소의 맛집이 이미 있습니다. (삭제된 맛집 포함)");
+        }
 
         // [3단계] 저장된 엔티티를 응답 DTO로 변환 후 반환
         // toResponse(): 엔티티 → 응답 DTO 변환 (평균 평점도 함께 계산)
@@ -297,6 +338,13 @@ public class RestaurantService {
         // → 다른 사람이면 "수정 권한이 없습니다" 예외 발생
         validateOwner(restaurant, loginMember);
 
+        // [추가]2026.11.11권성애 바꾸기 전 사진 주소 (사진을 바꾸거나 뺐으면 아래에서 옛 사진 정리)
+        String oldImageUrl = restaurant.getImageUrl();
+
+        // [추가]2026.11.12권성애 저장 전에 같은 가게가 있는지 (자기 자신은 제외)
+        String address = validAddress(form.getAddress());
+        checkIfSameStoreAtSave(form.getName(), address, id);
+
         // [3단계] 맛집 정보 수정
         // restaurant.update(): 엔티티의 필드 값들을 새 값으로 변경
         // JPA의 "변경 감지(Dirty Checking)" 기능 덕분에
@@ -305,11 +353,26 @@ public class RestaurantService {
         restaurant.update(
                 form.getName(),         // 새로운 맛집 이름 
                 form.getCategory(),                             // 새로운 카테고리
-                form.getAddress(),      // 새로운 주소 
+                address,   // 새로운 주소 // [추가]2026.11.11권성애 (수정: "부산광역시"로 통일, 부산 밖 주소는 막음) // [변경]2026.11.12권성애 (address 변수로) 위에서 검사한 값
                 form.getPhone(),                                // 새로운 전화번호
                 form.getDescription(),  // 새로운 설명 
-                validImageUrl(form.getImageUrl())               // [Phase 7] 새로운 이미지 URL ([수정] 형식 검사)
+                checkImageUrl(form.getImageUrl(), oldImageUrl)  // [Phase 7] 새로운 이미지 URL ([수정] 형식 검사) // [추가]2026.11.11권성애 (수정: 기존 값 그대로면 검사 없이 유지)
         );
+        // [추가]2026.11.11권성애 대표메뉴 · 영업시간 · 위도 · 경도 (update()는 팀 공용 메서드라 건드리지 않고 updateDetail()로 따로)
+        restaurant.updateDetail(form.getRepresentativeMenu(), form.getBusinessHours(), form.getLat(), form.getLng());
+
+        // [추가]2026.11.11권성애 사진을 바꿨거나 뺐으면 옛 사진 정리: image 테이블 기록은 지금(같은 트랜잭션), S3 파일은 커밋 뒤
+        // [변경]2026.11.12권성애 옛 사진 image 행은 소프트 삭제(deleted_at)만, S3 파일은 지우지 않음(개발자가 직접) — deleteImageAfterCommit 호출 없앰
+        if (oldImageUrl != null && !oldImageUrl.equals(restaurant.getImageUrl())) {
+            fileService.deleteImageRecord(oldImageUrl);
+        }
+
+        // [추가]2026.11.12권성애 유니크 키 오류(같은 이름 + 주소)를 여기서 바로 받아 안내 문구로 (flush = 지금 UPDATE 실행)
+        try {
+            restaurantRepository.flush();
+        } catch (DataIntegrityViolationException e) {
+            throw new IllegalArgumentException("같은 이름과 주소의 맛집이 이미 있습니다. (삭제된 맛집 포함)");
+        }
 
         // [4단계] 수정된 엔티티를 응답 DTO로 변환 후 반환
         return toResponse(restaurant);
@@ -355,7 +418,16 @@ public class RestaurantService {
 
         // [3단계] DB에서 맛집 삭제
         // restaurantRepository.delete(restaurant): DB에서 해당 맛집 데이터를 DELETE(삭제)
-        restaurantRepository.delete(restaurant);
+        // restaurantRepository.delete(restaurant);   // [추가]2026.11.11권성애 (수정: 실제 DELETE 대신 소프트 삭제 — 리뷰 · 댓글 외래키 때문)
+        restaurant.softDelete();   // [추가]2026.11.11권성애 deleted_at에 삭제 시각 기록 (@Transactional 안이라 UPDATE 자동 실행)
+
+        // [추가]2026.11.11권성애 사진은 남기지 않음 (복구 기능 없음): image 테이블 기록은 지금, S3 파일은 커밋 뒤
+        // [변경]2026.11.12권성애 image 행은 소프트 삭제(deleted_at)만, S3 파일은 지우지 않음(개발자가 AWS 콘솔에서 직접) — deleteImageAfterCommit 호출 없앰
+        //   공공 API 맛집의 외부 URL(visitbusan)은 FileService가 알아서 건너뜀
+        String imageUrl = restaurant.getImageUrl();
+        if (imageUrl != null) {
+            fileService.deleteImageRecord(imageUrl);
+        }
     }
 
     // ─── 맛집 검색 메서드 ─────────────────────────────────────
@@ -410,7 +482,7 @@ public class RestaurantService {
         //   → findTop6: 상위 6개만 조회
         //   → ByOrderByCreatedAtDesc: createdAt(생성일) 기준 내림차순(최신순) 정렬
         // .stream().map(this::toResponse).toList(): 각 엔티티를 DTO로 변환 후 리스트로 반환
-        return restaurantRepository.findTop6ByOrderByCreatedAtDesc().stream()
+        return restaurantRepository.findTop6ByDeletedAtIsNullOrderByCreatedAtDesc().stream()   // [추가]2026.11.11권성애 (수정: 삭제된 맛집 제외)
                 .map(this::toResponse)
                 .toList();
     }
@@ -429,8 +501,11 @@ public class RestaurantService {
     // [추가] 이미지 주소 검사: 비어 있으면 null, 아니면 FileService 가 돌려주는
     //   "/uploads/UUID.확장자" 형식만 허용합니다. 화면이 이 값을 <img src="..."> 에 그대로 넣기 때문에
     //   따옴표나 다른 사이트 주소가 들어가지 않게 막습니다.
+    // [추가]2026.11.11권성애 (수정: S3 전환 기간 동안 /uploads/ 와 /api/files/ 둘 다 허용 — S3만 쓰기로 확정되면 /api/files/ 만 남기기)
+    // [변경]2026.11.12권성애 (restaurant/ 폴더 주소도 허용: uploadForS3Only 가 돌려주는 /api/files/restaurant/UUID.확장자)
+    //   (restaurant/)? : 폴더가 있어도 없어도 됨 — 폴더 없는 옛 주소도 계속 통과. 리뷰 폴더(review/)는 맛집 사진이 아니라 허용 안 함
     private static final java.util.regex.Pattern IMAGE_URL =
-            java.util.regex.Pattern.compile("^/uploads/[0-9a-fA-F-]{36}\\.(jpg|jpeg|png|gif|webp)$");
+            java.util.regex.Pattern.compile("^/(uploads|api/files)/(restaurant/)?[0-9a-fA-F-]{36}\\.(jpg|jpeg|png|gif|webp)$");
 
     private String validImageUrl(String imageUrl) {
         if (imageUrl == null || imageUrl.isBlank()) {
@@ -442,11 +517,88 @@ public class RestaurantService {
         return imageUrl;
     }
 
+    // [추가]2026.11.11권성애 수정할 때: 기존 사진 주소 그대로면 형식 검사 없이 유지
+    //   공공 API 맛집의 외부 URL(visitbusan)은 validImageUrl 형식이 아니라서, 사진을 안 바꾸고 수정만 해도 오류가 나던 문제 방지
+    private String checkImageUrl(String newImageUrl, String oldImageUrl) {
+        if (newImageUrl != null && newImageUrl.equals(oldImageUrl)) {
+            return oldImageUrl;
+        }
+        return validImageUrl(newImageUrl);
+    }
+
+    // [변경]2026.11.12권성애 deleteImageAfterCommit() 없앰 (커밋 뒤 S3 사진 삭제) — 사진 파일은 개발자가 AWS 콘솔에서 직접 삭제
+
+    // [추가]2026.11.11권성애 주소 검사: "부산광역시 …"로 통일하고, 부산이 아닌 주소는 막음 (팀 결정: 부산 밖 주소 등록 불가)
+    //   카카오 우편번호 결과는 "부산 해운대구 …"처럼 와서 "부산광역시 "로 바꿈 (공공 API 배치와 같은 규칙)
+    //   화면(kakaoSelectAddressApplyNoKey)에서도 막지만, 화면을 거치지 않은 요청도 막으려고 서버에서 한 번 더
+    private String validAddress(String address) {
+        String a = (address == null) ? "" : address.trim().replaceAll("\\s+", " ");
+        if (a.startsWith("부산광역시 ")) {
+            return a;
+        }
+        if (a.startsWith("부산시 ")) {
+            return "부산광역시 " + a.substring("부산시 ".length());
+        }
+        if (a.startsWith("부산 ")) {
+            return "부산광역시 " + a.substring("부산 ".length());
+        }
+        throw new IllegalArgumentException("부산 지역 주소만 등록할 수 있습니다. [주소 검색]으로 부산 주소를 선택해 주세요.");
+    }
+
+    // ──────────────────────────────────────────────────────
+    // [추가]2026.11.12권성애 주소 검색 직후: 같은 주소에 이미 등록된 맛집 이름 목록 (삭제된 맛집 제외)
+    // ──────────────────────────────────────────────────────
+    // 호출: RestaurantApiController.findSameAddressStores() ← form.html findSameAddressStores()
+    //       (JS · 컨트롤러 · 서비스 · Repository 이름을 같게)
+    // 같은 주소 = 비교용 주소(도로명 + 건물번호, 공백 제거)가 같음 → 층 · 호 · 괄호 차이는 같은 주소
+    // 저장을 막지는 않고 안내만 (같은 건물의 다른 가게일 수 있어서). 막는 것은 checkIfSameStoreAtSave
+    // ※ 아래 private findStoresFromSameAddress() 와 이름이 비슷함: 이 메서드 = 화면 안내용(이름 목록을 돌려줌, 공개),
+    //    findStoresFromSameAddress = 안내 · 저장 검사가 같이 쓰는 공통 부분(맛집 목록을 돌려줌, private)
+    public List<String> findSameAddressStores(String address) {
+        String target = PublicRestaurantRow.comparingAddress(validAddress(address));   // 부산 밖 주소면 여기서 안내 오류
+        return findStoresFromSameAddress(address, target).stream()
+                .map(Restaurant::getName)
+                .distinct()
+                .toList();
+    }
+
+    // [추가]2026.11.12권성애 저장할 때: 같은 주소에 같은 가게(이름이 같거나 한쪽이 다른 쪽을 포함)가 있으면 막음
+    //   공공 API 배치와 같은 규칙 (PublicRestaurantRow.isSameStoreName) — 예) "이재모피자" / "이재모피자 본점"
+    //   exceptId: 수정할 때 자기 자신은 빼고 비교 (등록이면 null)
+    private void checkIfSameStoreAtSave(String name, String address, Long exceptId) {
+        String target = PublicRestaurantRow.comparingAddress(address);
+        for (Restaurant r : findStoresFromSameAddress(address, target)) {
+            if (exceptId != null && exceptId.equals(r.getId())) {
+                continue;
+            }
+            if (PublicRestaurantRow.isSameStoreName(r.getName(), name)) {
+                throw new IllegalArgumentException("이미 등록된 맛집입니다: " + r.getName() + " (" + r.getAddress() + ")");
+            }
+        }
+    }
+
+    // [추가]2026.11.12권성애 주소에서 도로명(예: "해운대해변로", "중앙대로")만 꺼내는 규칙: "…로/길" 바로 뒤에 숫자(건물번호 · 번길)가 오는 부분
+    private static final java.util.regex.Pattern ROAD_ADDRESS_NAME =
+            java.util.regex.Pattern.compile("(\\S+?(?:로|길))(?=\\s*\\d)");
+
+    // [추가]2026.11.12권성애 같은 주소의 맛집 찾기 (공통 부분) — findSameAddressStores(안내) · checkIfSameStoreAtSave(저장 검사)가 같이 씀
+    //   ① ROAD_ADDRESS_NAME 으로 주소에서 도로명만 꺼냄 ② Repository findSameAddressStores(도로명)로 후보를 넉넉히 가져옴
+    //   ③ 비교용 주소(도로명 + 건물번호, 공백 제거)가 같은 것만 남김
+    private List<Restaurant> findStoresFromSameAddress(String address, String target) {
+        java.util.regex.Matcher m = ROAD_ADDRESS_NAME.matcher(address == null ? "" : address);
+        if (!m.find()) {
+            return List.of();   // 도로명 주소가 아니면(지번 등) 비교하지 않음 — DB 유니크 키가 마지막 안전장치
+        }
+        return restaurantRepository.findSameAddressStores(m.group(1)).stream()
+                .filter(r -> PublicRestaurantRow.comparingAddress(r.getAddress()).equals(target))
+                .toList();
+    }
+
     private Restaurant getRestaurantOrThrow(Long id) {
         // restaurantRepository.findById(id): DB에서 해당 ID의 맛집 조회
         // → 결과는 Optional<Restaurant> (값이 있을 수도, 없을 수도 있음)
         // .orElseThrow(): 값이 없으면(맛집이 없으면) 예외를 던짐
-        return restaurantRepository.findById(id)
+        return restaurantRepository.findByIdAndDeletedAtIsNull(id)   // [추가]2026.11.11권성애 (수정: findById → 삭제된 맛집 제외)
                 .orElseThrow(() -> new IllegalArgumentException("맛집을 찾을 수 없습니다."));
     }
 

@@ -37,3 +37,6 @@ out/
 .vscode/
 
 developer.properties
+
+### 맞집등록 공공API로 데이터 넣을때 생기는 결과 CSV파일경로
+import-results/

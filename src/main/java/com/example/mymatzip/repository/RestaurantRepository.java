@@ -63,6 +63,9 @@ import org.springframework.data.repository.query.Param;
 // 맛집은 여러 개가 조회될 수 있으므로 List<Restaurant>로 반환합니다.
 import java.util.List;
 
+// [추가]2026.11.11권성애 findByIdAndDeletedAtIsNull 의 반환 타입 (값이 없을 수도 있음)
+import java.util.Optional;
+
 // ★ interface(인터페이스) 선언
 // 클래스(class)가 아니라 인터페이스(interface)인 이유:
 //   → Spring Data JPA가 이 인터페이스를 보고 "구현체(실제 동작하는 코드)"를
@@ -98,7 +101,8 @@ public interface RestaurantRepository extends JpaRepository<Restaurant, Long> {
     // @EntityGraph: 맛집 조회 시 등록자(member) 정보를 JOIN으로 한꺼번에 가져옵니다.
     // 이 어노테이션이 없으면 N+1 문제 발생 — 맛집 10개 조회 시 등록자 조회 쿼리가 10번 추가 실행!
     @EntityGraph(attributePaths = {"member"})
-    List<Restaurant> findByCategory(Category category);
+    // [추가]2026.11.11권성애 (수정: findByCategory → 삭제 안 된 맛집만, DeletedAtIsNull = "deleted_at IS NULL" 조건 자동 추가)
+    List<Restaurant> findByCategoryAndDeletedAtIsNull(Category category);
 
     // ──────────────────────────────────────────────────────
     // [Phase 5] 카테고리별 맛집 목록 페이징 조회 메서드
@@ -112,7 +116,8 @@ public interface RestaurantRepository extends JpaRepository<Restaurant, Long> {
     //   - Page<Restaurant> : 페이지 정보(전체 개수, 총 페이지 수 등)가 포함된 결과
     // ──────────────────────────────────────────────────────
     @EntityGraph(attributePaths = {"member"})
-    Page<Restaurant> findByCategory(Category category, Pageable pageable);
+    // [추가]2026.11.11권성애 (수정: findByCategory → 삭제 안 된 맛집만)
+    Page<Restaurant> findByCategoryAndDeletedAtIsNull(Category category, Pageable pageable);
 
     // ──────────────────────────────────────────────────────
     // 키워드로 맛집 검색 메서드 (이름 또는 주소에 포함)
@@ -145,9 +150,11 @@ public interface RestaurantRepository extends JpaRepository<Restaurant, Long> {
     //   List<Restaurant> results = restaurantRepository.searchByKeyword("돈까스");
     // ──────────────────────────────────────────────────────
     @EntityGraph(attributePaths = {"member"})
+    // [추가]2026.11.11권성애 (수정: deletedAt IS NULL 조건 추가 — OR 묶음을 괄호로 감싸야 주소 검색에도 조건이 적용됨)
     @Query("SELECT r FROM Restaurant r " +                                          // Restaurant 엔티티에서 r이라는 별명으로 조회
-           "WHERE LOWER(r.name) LIKE LOWER(CONCAT('%', :keyword, '%')) " +          // 이름에 키워드가 포함되거나 (대소문자 무시)
-           "OR LOWER(r.address) LIKE LOWER(CONCAT('%', :keyword, '%'))")            // 주소에 키워드가 포함된 것을 찾음 (대소문자 무시)
+           "WHERE r.deletedAt IS NULL " +                                           // [추가]2026.11.11권성애 삭제 안 된 맛집만
+           "AND (LOWER(r.name) LIKE LOWER(CONCAT('%', :keyword, '%')) " +           // 이름에 키워드가 포함되거나 (대소문자 무시)
+           "OR LOWER(r.address) LIKE LOWER(CONCAT('%', :keyword, '%')))")           // 주소에 키워드가 포함된 것을 찾음 (대소문자 무시)
     List<Restaurant> searchByKeyword(@Param("keyword") String keyword);             // @Param으로 :keyword에 실제 값을 바인딩
 
     // ──────────────────────────────────────────────────────
@@ -161,9 +168,11 @@ public interface RestaurantRepository extends JpaRepository<Restaurant, Long> {
     //   - Page<Restaurant> : 페이지 정보 + 검색 결과 데이터
     // ──────────────────────────────────────────────────────
     @EntityGraph(attributePaths = {"member"})
+    // [추가]2026.11.11권성애 (수정: deletedAt IS NULL 조건 추가, OR 묶음은 괄호로)
     @Query("SELECT r FROM Restaurant r " +
-           "WHERE LOWER(r.name) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
-           "OR LOWER(r.address) LIKE LOWER(CONCAT('%', :keyword, '%'))")
+           "WHERE r.deletedAt IS NULL " +
+           "AND (LOWER(r.name) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
+           "OR LOWER(r.address) LIKE LOWER(CONCAT('%', :keyword, '%')))")
     Page<Restaurant> searchByKeyword(@Param("keyword") String keyword, Pageable pageable);
 
     // ──────────────────────────────────────────────────────
@@ -191,7 +200,8 @@ public interface RestaurantRepository extends JpaRepository<Restaurant, Long> {
     //   List<Restaurant> latest6 = restaurantRepository.findTop6ByOrderByCreatedAtDesc();
     // ──────────────────────────────────────────────────────
     @EntityGraph(attributePaths = {"member"})
-    List<Restaurant> findTop6ByOrderByCreatedAtDesc();
+    // [추가]2026.11.11권성애 (수정: findTop6ByOrderByCreatedAtDesc → 삭제 안 된 것 중 최신 6개)
+    List<Restaurant> findTop6ByDeletedAtIsNullOrderByCreatedAtDesc();
 
     // ──────────────────────────────────────────────────────
     // [Phase 5] 전체 맛집 목록 페이징 조회 메서드
@@ -205,7 +215,16 @@ public interface RestaurantRepository extends JpaRepository<Restaurant, Long> {
     //   - Page<Restaurant> : 페이지 정보가 포함된 맛집 목록
     // ──────────────────────────────────────────────────────
     @EntityGraph(attributePaths = {"member"})
-    Page<Restaurant> findAll(Pageable pageable);
+    // [추가]2026.11.11권성애 (수정: findAll(Pageable) 오버라이드 → 삭제 안 된 맛집만, 새 이름)
+    Page<Restaurant> findAllByDeletedAtIsNull(Pageable pageable);
+
+    // [추가]2026.11.11권성애 (수정: findAll() → 삭제 안 된 맛집만) RestaurantService.findAll()용
+    @EntityGraph(attributePaths = {"member"})
+    List<Restaurant> findAllByDeletedAtIsNull();
+
+    // [추가]2026.11.11권성애 (수정: findById → 삭제 안 된 맛집만) 상세 · 수정 · 삭제 · 리뷰 작성(findEntityById)용
+    //   findById()는 기본 메서드라 그대로 두고(공공 API 배치 · 관리자용), 화면 쪽은 이 메서드를 씀
+    Optional<Restaurant> findByIdAndDeletedAtIsNull(Long id);
 
     // ──────────────────────────────────────────────────────
     // [Phase 5] 특정 회원이 등록한 맛집 목록 페이징 조회 (마이페이지용)
@@ -219,7 +238,13 @@ public interface RestaurantRepository extends JpaRepository<Restaurant, Long> {
     //   - Page<Restaurant> : 해당 회원이 등록한 맛집 목록 (페이징 적용)
     // ──────────────────────────────────────────────────────
     @EntityGraph(attributePaths = {"member"})
+    // [추가]2026.11.11권성애 (수정: findByMemberId → 삭제 안 된 맛집만) 마이페이지 "내가 등록한 맛집"
+    Page<Restaurant> findByMemberIdAndDeletedAtIsNull(Long memberId, Pageable pageable);
+
+    // 다른사람 사용하고 있어서 다시 추가
+    @EntityGraph(attributePaths = {"member"})
     Page<Restaurant> findByMemberId(Long memberId, Pageable pageable);
+
 
     // ──────────────────────────────────────────────────────
     // [Phase 9] 특정 회원이 등록한 맛집 수 조회 (마이페이지 통계용)
@@ -227,5 +252,26 @@ public interface RestaurantRepository extends JpaRepository<Restaurant, Long> {
     // [사용 화면] 마이페이지 → 통계 카드에 "내 맛집 수" 표시
     // [반환값] long — 해당 회원이 등록한 맛집의 총 개수
     // ──────────────────────────────────────────────────────
+    // [추가]2026.11.11권성애 (수정: countByMemberId → 삭제 안 된 맛집만) 마이페이지 "내 맛집 수"
+    long countByMemberIdAndDeletedAtIsNull(Long memberId);
+
+    // 다른사람 사용하고 있어서 다시 추가
     long countByMemberId(Long memberId);
+
+    // ──────────────────────────────────────────────────────
+    // [추가]2026.11.12권성애 같은 주소에 등록된 맛집 후보 찾기 (삭제 안 된 것만)
+    // ──────────────────────────────────────────────────────
+    // 이름을 JS · 컨트롤러 · 서비스와 똑같이 findSameAddressStores 로 맞추려고 @Query 로 작성
+    //   (메서드 이름 규칙으로 SQL을 만들면 이름이 findByAddressContaining... 이 되어야 해서)
+    // :roadName = 도로명 (예: "해운대해변로") → 주소에 이 글자가 들어간 맛집을 먼저 넉넉히 가져오고,
+    //   RestaurantService 가 비교용 주소(도로명 + 건물번호)로 다시 걸러냄
+    // 사용하는 곳: RestaurantService.findSameAddressStores() (주소 검색 직후 안내)
+    //             RestaurantService.checkIfSameStoreAtSave() (저장할 때 같은 가게 막기)
+    @Query("SELECT r FROM Restaurant r WHERE r.deletedAt IS NULL AND r.address LIKE CONCAT('%', :roadName, '%')")
+    List<Restaurant> findSameAddressStores(@Param("roadName") String roadName);
+
+
+    // [추가]2026.11.11권성애 (수정: 기본 count() → 삭제 안 된 맛집 수)
+    long countByDeletedAtIsNull();
+
 }

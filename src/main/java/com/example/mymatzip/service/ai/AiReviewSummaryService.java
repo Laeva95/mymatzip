@@ -77,7 +77,9 @@ public class AiReviewSummaryService {
     @Transactional
     public Map<String, Object> summarize(Long restaurantId, Long memberId) {
         // JPA: SELECT * FROM restaurant WHERE id = ? . 없으면 예외 → 컨트롤러가 400 응답
-        Restaurant restaurant = restaurantRepository.findById(restaurantId)
+
+        //[변경]2026.11.11권성애 (수정: findById → 삭제 안 된 맛집만)
+        Restaurant restaurant = restaurantRepository.findByIdAndDeletedAtIsNull(restaurantId)
                 .orElseThrow(() -> new IllegalArgumentException("맛집을 찾을 수 없습니다."));
 
         Map<String, Object> result = new LinkedHashMap<>();
