@@ -241,6 +241,11 @@ public interface RestaurantRepository extends JpaRepository<Restaurant, Long> {
     // [추가]2026.11.11권성애 (수정: findByMemberId → 삭제 안 된 맛집만) 마이페이지 "내가 등록한 맛집"
     Page<Restaurant> findByMemberIdAndDeletedAtIsNull(Long memberId, Pageable pageable);
 
+    // 다른사람 사용하고 있어서 다시 추가
+    @EntityGraph(attributePaths = {"member"})
+    Page<Restaurant> findByMemberId(Long memberId, Pageable pageable);
+
+
     // ──────────────────────────────────────────────────────
     // [Phase 9] 특정 회원이 등록한 맛집 수 조회 (마이페이지 통계용)
     // ──────────────────────────────────────────────────────
@@ -249,6 +254,9 @@ public interface RestaurantRepository extends JpaRepository<Restaurant, Long> {
     // ──────────────────────────────────────────────────────
     // [추가]2026.11.11권성애 (수정: countByMemberId → 삭제 안 된 맛집만) 마이페이지 "내 맛집 수"
     long countByMemberIdAndDeletedAtIsNull(Long memberId);
+
+    // 다른사람 사용하고 있어서 다시 추가
+    long countByMemberId(Long memberId);
 
     // ──────────────────────────────────────────────────────
     // [추가]2026.11.12권성애 같은 주소에 등록된 맛집 후보 찾기 (삭제 안 된 것만)
