@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<!--/*
+============================================================
+[mypage/dashboard.html] 마이페이지 (A 회원·인증 담당)
+============================================================
+컨트롤러: MyPageViewController.dashboard()  (GET /mypage) → 넘겨주는 값 없음
+  loginMember : GlobalModelAdvice 가 넣는 로그인 회원 (닉네임·이메일·역할 표시에 사용)
+API (MyPageApiController)
+  GET /api/mypage/stats                 → { restaurantCount, reviewCount, wishlistCount }
+  GET /api/mypage/restaurants?page=0    → { content:[...], totalPages, currentPage }
+  GET /api/mypage/reviews?page=0        → { content:[...], totalPages, currentPage }
+  PUT /api/mypage/nickname, /password   → { message } 또는 { error }
+============================================================
+*/-->
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('마이페이지')}"></head>
+<body>
+<nav th:replace="~{fragments/layout :: header}"></nav>
+<main class="container mb-5">
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <div class="d-flex align-items-center">
+                <div class="me-4"><i class="bi bi-person-circle" style="font-size:4rem;color:#0d6efd;"></i></div>
+                <div>
+                    <h3 class="mb-1" id="profileNickname" th:text="${loginMember.nickname} + '님'">닉네임님</h3>
+                    <p class="text-muted mb-1"><i class="bi bi-envelope"></i> <span th:text="${loginMember.email}">email</span></p>
+                    <!--/* loginMember.role.displayName → Role.getDisplayName() → "일반 사용자" / "관리자" */-->
+                    <p class="text-muted mb-0"><i class="bi bi-shield-check"></i> <span class="badge bg-primary" th:text="${loginMember.role.displayName}">일반 사용자</span></p>
+                </div>
+            </div>
+            <div class="row mt-4 g-2">
+                <div class="col-4"><div class="card text-center bg-light"><div class="card-body py-3">
+                    <h5 class="card-title text-primary mb-0" id="statRestaurants">-</h5><small class="text-muted">등록한 맛집</small></div></div></div>
+                <div class="col-4"><div class="card text-center bg-light"><div class="card-body py-3">
+                    <h5 class="card-title text-success mb-0" id="statReviews">-</h5><small class="text-muted">작성한 리뷰</small></div></div></div>
+                <div class="col-4"><div class="card text-center bg-light"><div class="card-body py-3">
+                    <h5 class="card-title text-danger mb-0" id="statWishlists">-</h5><small class="text-muted">찜한 맛집</small></div></div></div>
+            </div>
+        </div>
+    </div>
+
+    <ul class="nav nav-tabs mb-4" role="tablist">
+        <li class="nav-item" role="presentation"><button class="nav-link active" id="restaurants-tab" data-bs-toggle="tab" data-bs-target="#restaurants-pane" type="button" role="tab"><i class="bi bi-shop"></i> 내 맛집</button></li>
+        <li class="nav-item" role="presentation"><button class="nav-link" id="reviews-tab" data-bs-toggle="tab" data-bs-target="#reviews-pane" type="button" role="tab"><i class="bi bi-chat-dots"></i> 내 리뷰</button></li>
+        <li class="nav-item" role="presentation"><button class="nav-link" id="profile-tab" data-bs-toggle="tab" data-bs-target="#profile-pane" type="button" role="tab"><i class="bi bi-gear"></i> 프로필 수정</button></li>
+    </ul>
+
+    <div class="tab-content">
+        <div class="tab-pane fade show active" id="restaurants-pane" role="tabpanel">
+            <div class="row" id="myRestaurantsList"></div>
+            <nav id="restaurantsPagination" class="mt-3"><ul class="pagination justify-content-center"></ul></nav>
+        </div>
+        <div class="tab-pane fade" id="reviews-pane" role="tabpanel">
+            <div id="myReviewsList"></div>
+            <nav id="reviewsPagination" class="mt-3"><ul class="pagination justify-content-center"></ul></nav>
+        </div>
+        <div class="tab-pane fade" id="profile-pane" role="tabpanel">
+            <div class="row justify-content-center"><div class="col-md-6">
+                <div class="card shadow-sm mb-4"><div class="card-body">
+                    <h5 class="card-title mb-3"><i class="bi bi-person"></i> 닉네임 변경</h5>
+                    <div id="nicknameMsg" class="alert d-none"></div>
+                    <form id="nicknameForm">
+                        <div class="mb-3"><label for="newNickname" class="form-label">새 닉네임</label>
+                            <input type="text" class="form-control" id="newNickname" minlength="2" maxlength="10" required></div>
+                        <button type="submit" class="btn btn-primary"><i class="bi bi-check-circle"></i> 닉네임 변경</button>
+                    </form>
+                </div></div>
+                <div class="card shadow-sm"><div class="card-body">
+                    <h5 class="card-title mb-3"><i class="bi bi-lock"></i> 비밀번호 변경</h5>
+                    <div id="passwordMsg" class="alert d-none"></div>
+                    <form id="passwordForm">
+                        <div class="mb-3"><label for="currentPassword" class="form-label">현재 비밀번호</label>
+                            <input type="password" class="form-control" id="currentPassword" required></div>
+                        <div class="mb-3"><label for="newPassword" class="form-label">새 비밀번호</label>
+                            <input type="password" class="form-control" id="newPassword" required></div>
+                        <button type="submit" class="btn btn-warning"><i class="bi bi-check-circle"></i> 비밀번호 변경</button>
+                    </form>
+                </div></div>
+            </div></div>
+        </div>
+    </div>
+</main>
+<th:block th:replace="~{fragments/layout :: footer}"></th:block>
+<script>
+    document.addEventListener('DOMContentLoaded', function () { loadStats(); loadMyRestaurants(0); });
+    document.getElementById('restaurants-tab').addEventListener('shown.bs.tab', function () { loadMyRestaurants(0); });
+    document.getElementById('reviews-tab').addEventListener('shown.bs.tab', function () { loadMyReviews(0); });
+
+    function loadStats() {
+        fetchJson('/api/mypage/stats').then(function (r) {
+            if (!r.ok) return;
+            document.getElementById('statRestaurants').textContent = r.body.restaurantCount;
+            document.getElementById('statReviews').textContent = r.body.reviewCount;
+            document.getElementById('statWishlists').textContent = r.body.wishlistCount;
+        });
+    }
+
+    function loadMyRestaurants(page) {
+        fetchJson('/api/mypage/restaurants?page=' + page + '&size=6').then(function (r) {
+            const container = document.getElementById('myRestaurantsList');
+            const content = (r.body && r.body.content) || [];
+            if (content.length === 0) {
+                container.innerHTML = '<div class="col-12 text-center py-5"><p class="text-muted"><i class="bi bi-shop"></i> 등록한 맛집이 없습니다.</p>' +
+                    '<a href="/restaurants/new" class="btn btn-primary">맛집 등록하기</a></div>';
+                document.querySelector('#restaurantsPagination ul').innerHTML = '';
+                return;
+            }
+            container.innerHTML = content.map(function (x) {
+                return '<div class="col-md-4 mb-3"><div class="card shadow-sm h-100"><div class="card-body">' +
+                    '<h6 class="card-title"><a href="/restaurants/' + Number(x.id) + '">' + esc(x.name) + '</a></h6>' +
+                    '<p class="card-text text-muted small mb-1"><i class="bi bi-tag"></i> ' + esc(x.categoryDisplayName || x.category) + '</p>' +
+                    '<p class="card-text text-muted small mb-0"><i class="bi bi-geo-alt"></i> ' + esc(x.address) + '</p>' +
+                    '</div><div class="card-footer text-muted small"><i class="bi bi-calendar"></i> ' + esc(formatDateTime(x.createdAt)) + '</div></div></div>';
+            }).join('');
+            renderPagination('restaurantsPagination', r.body.totalPages, r.body.currentPage, loadMyRestaurants);
+        });
+    }
+
+    function loadMyReviews(page) {
+        fetchJson('/api/mypage/reviews?page=' + page + '&size=10').then(function (r) {
+            const container = document.getElementById('myReviewsList');
+            const content = (r.body && r.body.content) || [];
+            if (content.length === 0) {
+                container.innerHTML = '<div class="text-center py-5"><p class="text-muted"><i class="bi bi-chat-dots"></i> 작성한 리뷰가 없습니다.</p></div>';
+                document.querySelector('#reviewsPagination ul').innerHTML = '';
+                return;
+            }
+            container.innerHTML = '<div class="list-group">' + content.map(function (x) {
+                return '<div class="list-group-item"><div class="d-flex justify-content-between align-items-start"><div>' +
+                    '<h6 class="mb-1"><a href="/restaurants/' + Number(x.restaurantId) + '">' + esc(x.restaurantName) + '</a></h6>' +
+                    '<div class="mb-1 rating-stars">' + renderStars(x.rating) + '</div>' +
+                    '<p class="mb-0 text-muted">' + esc(x.content) + '</p></div>' +
+                    '<small class="text-muted">' + esc(formatDateTime(x.createdAt)) + '</small></div></div>';
+            }).join('') + '</div>';
+            renderPagination('reviewsPagination', r.body.totalPages, r.body.currentPage, loadMyReviews);
+        });
+    }
+
+    function showMsg(id, ok, text) {
+        const el = document.getElementById(id);
+        el.className = 'alert ' + (ok ? 'alert-success' : 'alert-danger');
+        el.textContent = text;
+    }
+
+    document.getElementById('nicknameForm').addEventListener('submit', function (e) {
+        e.preventDefault();
+        const nickname = document.getElementById('newNickname').value.trim();
+        fetchJson('/api/mypage/nickname', {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nickname: nickname })
+        }).then(function (r) {
+            showMsg('nicknameMsg', r.ok, r.ok ? r.body.message : (r.body.error || '변경에 실패했습니다.'));
+            if (r.ok) document.getElementById('profileNickname').textContent = nickname + '님';
+        });
+    });
+
+    document.getElementById('passwordForm').addEventListener('submit', function (e) {
+        e.preventDefault();
+        fetchJson('/api/mypage/password', {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                currentPassword: document.getElementById('currentPassword').value,
+                newPassword: document.getElementById('newPassword').value
+            })
+        }).then(function (r) {
+            showMsg('passwordMsg', r.ok, r.ok ? r.body.message : (r.body.error || '변경에 실패했습니다.'));
+            if (r.ok) { document.getElementById('currentPassword').value = ''; document.getElementById('newPassword').value = ''; }
+        });
+    });
+</script>
+</body>
+</html>
