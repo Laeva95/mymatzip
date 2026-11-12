@@ -36,6 +36,7 @@ import lombok.RequiredArgsConstructor;
 // Spring
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -86,7 +87,13 @@ public class AdminService {
     // 반환값: Page<Member> — 페이지 정보가 포함된 회원 목록
     // 사용처: 관리자 > 회원 관리 페이지
     public Page<Member> findAllMembers(Pageable pageable) {
-        return memberRepository.findAll(pageable);
+        Pageable sortedPageable = org.springframework.data.domain.PageRequest.of(
+                pageable.getPageNumber(),
+                pageable.getPageSize(),
+                Sort.by(Sort.Direction.ASC, "id")
+        );
+
+        return memberRepository.findAll(sortedPageable);
     }
 
     // ── 전체 맛집 목록 조회 (페이징) ────────────────────────────
