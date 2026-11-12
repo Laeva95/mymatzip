@@ -90,6 +90,7 @@ public class AiRecommendService {
                 번호|이름|카테고리|평균별점|설명
                 """ + candidateText + "\n</candidates>";
 
+
         // 5) AI 호출
         String answer;
         try {
