@@ -290,4 +290,21 @@ public class RestaurantApiController {
         // ResponseEntity.ok(...): 200 OK + 검색 결과 JSON 반환
         return ResponseEntity.ok(restaurantService.search(keyword));
     }
+
+    // ──────────────────────────────────────────────────────
+    // [추가]2026.11.12권성애 주소 검색 직후: 같은 주소에 이미 등록된 맛집 이름 목록
+    // ──────────────────────────────────────────────────────
+    // 요청: GET /api/restaurants/sameaddress?address=부산광역시 해운대구 해운대해변로 264
+    //   form.html 의 findSameAddressStores() 가 호출 (JS · 컨트롤러 · 서비스 · Repository 이름을 같게)
+    //   "/sameaddress" 는 글자 그대로의 주소라 "/{id}" 보다 먼저 맞춰짐 (id로 잘못 해석되지 않음)
+    // 성공 응답: 200 OK + {"stores": ["OO식당", "OO횟집"]}  (없으면 빈 배열)
+    // 부산 밖 주소 등 잘못된 주소: 400 + {"error": "..."}
+    @GetMapping("/sameaddress")
+    public ResponseEntity<?> findSameAddressStores(@RequestParam String address) {
+        try {
+            return ResponseEntity.ok(Map.of("stores", restaurantService.findSameAddressStores(address)));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
 }

@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300" role="img" aria-label="국밥·탕 기본 이미지">
+<rect width="400" height="300" fill="#F3EAD7"/>
+<ellipse cx="200" cy="196" rx="118" ry="14" fill="#E2D5BB"/>
+<path d="M90 118 Q96 194 200 198 Q304 194 310 118 Z" fill="#3B3733"/>
+<ellipse cx="200" cy="118" rx="110" ry="40" fill="#4A4542"/>
+<ellipse cx="200" cy="120" rx="96" ry="32" fill="#F2E6CC"/>
+<ellipse cx="160" cy="118" rx="20" ry="9" fill="#E9D3C4"/>
+<ellipse cx="200" cy="126" rx="22" ry="9" fill="#E3C8B6"/>
+<ellipse cx="238" cy="114" rx="20" ry="9" fill="#E9D3C4"/>
+<path d="M150 104 l10 -4 M214 100 l12 -2 M180 136 l10 2 M248 130 l10 -3" stroke="#5FA346" stroke-width="5" stroke-linecap="round"/>
+<circle cx="268" cy="122" r="5" fill="#C0392B"/><circle cx="134" cy="126" r="4" fill="#C0392B"/>
+<path d="M160 76 q-8 -14 0 -28 M200 70 q-8 -14 0 -28 M240 76 q-8 -14 0 -28" fill="none" stroke="#C9B49B" stroke-width="5" stroke-linecap="round"/>
+<path d="M300 92 L338 56" stroke="#B9B2A6" stroke-width="7" stroke-linecap="round"/>
+<ellipse cx="292" cy="100" rx="14" ry="9" fill="#B9B2A6" transform="rotate(-45 292 100)"/>
+<text x="200" y="258" text-anchor="middle" font-size="30" font-weight="700" fill="#5A4426" font-family="Noto Sans KR, Apple SD Gothic Neo, Malgun Gothic, sans-serif">국밥·탕</text>
+</svg>

@@ -183,6 +183,14 @@ public class RestaurantResponse {
     // ──────────────────────────────────────────────────────
     private String imageUrl;                // 맛집 대표 이미지 URL (선택, null 가능)
 
+    // [추가]2026.11.11권성애 대표메뉴 · 영업시간 · 위도 · 경도 · 출처 · 기본 이미지
+    private String representativeMenu;      // 대표메뉴 (선택)
+    private String businessHours;           // 영업시간 (선택, 줄바꿈 포함 가능)
+    private Double lat;                     // 위도
+    private Double lng;                     // 경도
+    private String sourceDisplayName;       // 출처 한글 이름 (예: "직접등록", "공공API 모범음식점") — 화면에 읽기 전용 표시
+    private String defaultImageUrl;         // 카테고리 기본 이미지 (예: "/images/category/korean.svg") — 사진이 없거나 깨질 때
+
     // ──────────────────────────────────────────────────────
     // Entity → Response DTO 변환 메서드 (정적 팩토리 메서드)
     // ──────────────────────────────────────────────────────
@@ -251,6 +259,13 @@ public class RestaurantResponse {
 
                 // [Phase 7] restaurant.getImageUrl() → 대표 이미지 URL을 설정 (null일 수 있음)
                 .imageUrl(restaurant.getImageUrl())
+                // [추가]2026.11.11권성애 새 항목
+                .representativeMenu(restaurant.getRepresentativeMenu())
+                .businessHours(restaurant.getBusinessHours())
+                .lat(restaurant.getLat())
+                .lng(restaurant.getLng())
+                .sourceDisplayName(restaurant.getSource() != null ? restaurant.getSource().getDisplayName() : null)
+                .defaultImageUrl(restaurant.getCategory().getDefaultImageUrl())
 
                 // .build() → 위에서 설정한 모든 값으로 RestaurantResponse 객체를 최종 생성
                 .build();

@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<!--/*
+============================================================
+[restaurant/form.html] 맛집 등록·수정 화면 (B 맛집 담당)
+============================================================
+컨트롤러:
+  등록 RestaurantViewController.createForm()  (GET /restaurants/new)
+        categories : Category.values()     restaurant : 없음(null)
+  수정 RestaurantViewController.editForm()    (GET /restaurants/{id}/edit)
+        categories : Category.values()     restaurant : RestaurantResponse (기존 값)
+저장: fetch POST /api/restaurants (등록) 또는 PUT /api/restaurants/{id} (수정) → RestaurantApiController
+사진: 파일 선택 즉시 fetch POST /api/files/upload → FileApiController → FileService(local 또는 S3)
+[추가]2026.11.11권성애 바뀐 점
+  사진: 고를 때는 내 PC 파일로 미리보기만(서버 요청 없음) → [등록하기]/[수정 완료]를 누르면 업로드 후 저장
+        (취소하거나 사진을 바꿔도 S3에 파일이 남지 않음)
+  주소: [주소 검색](카카오 우편번호, 키 없음) → 부산 주소만 → 카카오 지도 SDK(JS 키)로 위도·경도 → hidden lat/lng
+        JS 키: application.properties 의 kakao.map.js-key=${KAKAO_JS_KEY:} (없으면 좌표를 못 찾아 저장이 막힘)
+  추가 입력: 대표메뉴 · 영업시간 (선택, 500자) / 소개글 · 대표메뉴 · 영업시간 글자 수 표시
+  [추가]2026.11.12권성애 주소 검색 직후 같은 주소 맛집 안내(findSameAddressStores), 사진은 S3 맛집 폴더로(uploadfors3only, folder=restaurant),
+        소개글 · 대표메뉴 · 영업시간은 등록할 때만 필수(수정할 때는 선택)
+  함수 이름 (확정): kakaoAddressSearchNoKey, kakaoSelectAddressApplyNoKey, kakaoSearchLatLngGeocode,
+        setHiddenLatLng / clearHiddenLatLng, textCount, checkImageFile, uploadImageOnSave, blockSaveDuringUpload,
+        showImagePreview / hideImagePreview, removeUploadImage, validateFormBeforeSave, submitRestaurant, showError / hideError
+        (카카오를 쓰면 앞에 kakao, JS 키가 필요 없으면 끝에 NoKey)
+============================================================
+*/-->
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<!--/* 수정이면 '맛집 수정', 등록이면 '맛집 등록' 을 title 로 넘긴다 (조건 ? 참 : 거짓) */-->
+<head th:replace="~{fragments/layout :: head(${restaurant != null} ? '맛집 수정' : '맛집 등록')}"></head>
+<body>
+<nav th:replace="~{fragments/layout :: header}"></nav>
+<main class="container mb-5">
+<!--/* th:with : 이 태그 안에서만 쓰는 변수를 만든다. isEdit = 수정 화면 여부 */-->
+<div class="row justify-content-center" th:with="isEdit=${restaurant != null}">
+    <div class="col-md-7">
+        <div class="card shadow-sm">
+            <div class="card-body p-4">
+                <h3 class="card-title text-center mb-4" th:text="${isEdit} ? '맛집 수정' : '맛집 등록'">맛집 등록</h3>
+                <div id="errorMsg" class="alert alert-danger d-none"></div>
+                <form id="restaurantForm">
+                    <div class="mb-3">
+                        <label for="name" class="form-label">맛집 이름 <span class="text-danger">*</span></label>
+                        <!--/* th:value : input 의 value 속성을 채운다. 등록 화면이면 빈 값 */-->
+                        <input type="text" class="form-control" id="name" maxlength="50" required
+                               th:value="${isEdit} ? ${restaurant.name} : ''" placeholder="맛집 이름을 입력하세요">
+                    </div>
+                    <div class="mb-3">
+                        <label for="category" class="form-label">카테고리 <span class="text-danger">*</span></label>
+                        <select class="form-select" id="category" required>
+                            <option value="">카테고리를 선택하세요</option>
+                            <!--/* th:value="${cat}" → enum 이름(KOREAN). th:text → 한글 이름.
+                                   th:selected : 참이면 selected 속성을 붙인다 (수정 화면에서 기존 카테고리 선택) */-->
+                            <option th:each="cat : ${categories}" th:value="${cat}" th:text="${cat.displayName}"
+                                    th:selected="${isEdit and restaurant.category == cat}">한식</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="address" class="form-label">주소 <span class="text-danger">*</span></label>
+                        <!--/* [추가]2026.11.11권성애 주소는 직접 입력하지 않고 [주소 검색]으로만 고름 (readonly) — 오타 방지 · 부산 주소만 · 좌표 찾기 */-->
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="address" required readonly
+                                   th:value="${isEdit} ? ${restaurant.address} : ''" placeholder="[주소 검색]을 눌러 부산 주소를 선택하세요">
+                            <button type="button" class="btn btn-outline-secondary" id="addressSearchBtn">주소 검색</button>
+                        </div>
+                        <!--/* [추가]2026.11.11권성애 상세 주소(층 · 호 등)는 직접 입력 → 저장할 때 주소 뒤에 붙임 */-->
+                        <input type="text" class="form-control mt-2" id="addressDetail" maxlength="100" placeholder="상세 주소 (예: 2층 201호, 선택)">
+                        <!--/* [추가]2026.11.11권성애 위도 · 경도: 주소를 고르면 kakaoSearchLatLngGeocode() 가 채움. 수정 화면은 기존 값 */-->
+                        <input type="hidden" id="lat" th:value="${isEdit} ? ${restaurant.lat} : ''">
+                        <input type="hidden" id="lng" th:value="${isEdit} ? ${restaurant.lng} : ''">
+                        <!--/* [추가]2026.11.12권성애 같은 주소에 이미 등록된 맛집 안내 칸 (findSameAddressStores 가 보이게/숨기게) — 안내만, 저장은 막지 않음 */-->
+                        <div id="notifyMsgIfSameAddress" class="alert alert-warning small mt-2 mb-0 d-none"></div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="phone" class="form-label">전화번호</label>
+                        <input type="text" class="form-control" id="phone"
+                               th:value="${isEdit} ? ${restaurant.phone} : ''" placeholder="051-123-4567">
+                    </div>
+                    <div class="mb-3">
+                        <label for="description" class="form-label">설명 <span class="text-danger" th:if="${!isEdit}">*</span></label>
+                        <!--/* [변경]2026.11.12권성애 등록 화면에서만 필수 (* 표시 + required). 수정 화면은 선택 — 공공 API 맛집은 비어 있을 수 있어서 */-->
+                        <!--/* textarea 는 value 속성이 없으므로 th:text 로 안쪽 글자를 채운다 */-->
+                        <textarea class="form-control" id="description" th:required="${!isEdit}" rows="3" maxlength="500"
+                                  placeholder="맛집을 소개해주세요 (500자 이내)"
+                                  th:text="${isEdit} ? ${restaurant.description} : ''"></textarea>
+                        <!--/* [추가]2026.11.11권성애 글자 수 표시 (textCount) */-->
+                        <div class="form-text text-end"><span id="descriptionCount">0</span> / 500</div>
+                    </div>
+                    <!--/* [추가]2026.11.11권성애 대표메뉴 · 영업시간 (선택, 각 500자) */-->
+                    <div class="mb-3">
+                        <label for="representativeMenu" class="form-label">대표메뉴 <span class="text-danger" th:if="${!isEdit}">*</span></label>
+                        <!--/* [변경]2026.11.12권성애 등록 화면에서만 필수 (* 표시 + required). 수정 화면은 선택 — 공공 API 맛집은 비어 있을 수 있어서 */-->
+                        <textarea class="form-control" id="representativeMenu" th:required="${!isEdit}" rows="2" maxlength="500"
+                                  placeholder="예: 돼지국밥, 수육백반"
+                                  th:text="${isEdit} ? ${restaurant.representativeMenu} : ''"></textarea>
+                        <div class="form-text text-end"><span id="representativeMenuCount">0</span> / 500</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="businessHours" class="form-label">영업시간 <span class="text-danger" th:if="${!isEdit}">*</span></label>
+                        <!--/* [변경]2026.11.12권성애 등록 화면에서만 필수 (* 표시 + required). 수정 화면은 선택 — 공공 API 맛집은 비어 있을 수 있어서 */-->
+                        <textarea class="form-control" id="businessHours" th:required="${!isEdit}" rows="2" maxlength="500"
+                                  placeholder="예: 매일 10:00~21:00, 월요일 휴무"
+                                  th:text="${isEdit} ? ${restaurant.businessHours} : ''"></textarea>
+                        <div class="form-text text-end"><span id="businessHoursCount">0</span> / 500</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="imageFile" class="form-label">대표 사진 (jpg · png · gif · webp, 5MB 이하)</label>
+                        <input type="file" class="form-control" id="imageFile" accept=".jpg,.jpeg,.png,.gif,.webp">
+                        <input type="hidden" id="imageUrl" th:value="${isEdit} ? ${restaurant.imageUrl} : ''">
+                        <!--/* [추가]2026.11.11권성애 사진이 깨지면 카테고리 기본 이미지 — onerror는 JS(showImagePreview)에서 붙임
+                               (타임리프 3.1은 onerror 같은 이벤트 속성에 문자열 변수를 넣는 것을 막아서) */-->
+                        <img id="imagePreview" alt="대표 사진 미리보기" class="img-thumbnail mt-2" style="max-height:200px;"
+                             th:src="${isEdit} ? ${restaurant.imageUrl} : ''"
+                             th:classappend="${isEdit and restaurant.imageUrl != null} ? '' : 'd-none'">
+                        <!--/* [추가]2026.11.11권성애 [사진 삭제] 버튼 (removeUploadImage) — 저장하면 옛 사진은 서버가 커밋 뒤 S3에서 지움 */-->
+                        <div class="mt-2">
+                            <button type="button" class="btn btn-sm btn-outline-danger" id="removeImageBtn">사진 삭제</button>
+                        </div>
+                    </div>
+                    <!--/* [추가]2026.11.11권성애 출처: 수정 화면에서 글자로만 표시 (입력칸 아님 — 서버가 정함: 직접등록 / 공공API ...) */-->
+                    <p class="text-muted small mb-3" th:if="${isEdit and restaurant.sourceDisplayName != null}">
+                        출처: <span th:text="${restaurant.sourceDisplayName}">직접등록</span>
+                    </p>
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary flex-grow-1" id="saveBtn" th:text="${isEdit} ? '수정 완료' : '등록하기'">등록하기</button>
+                        <a th:href="@{/restaurants}" class="btn btn-outline-secondary">취소</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+</main>
+<th:block th:replace="~{fragments/layout :: footer}"></th:block>
+
+<!--/* [추가]2026.11.11권성애 카카오 스크립트 2개
+       ① 우편번호 서비스 (키 필요 없음) — kakaoAddressSearchNoKey / kakaoSelectAddressApplyNoKey 에서 사용
+       ② 지도 SDK + services(Geocoder) (JS 키 필요) — kakaoSearchLatLngGeocode 에서 사용
+          키: application.properties 의 kakao.map.js-key (= developer.properties 의 KAKAO_JS_KEY)
+          @environment.getProperty(...) : 컨트롤러를 거치지 않고 타임리프에서 바로 설정값을 읽음
+          키가 비어 있으면 ② 스크립트를 넣지 않음 → 좌표를 못 찾아 저장이 막힘 (안내 문구 표시)
+          autoload=false : 스크립트를 다 읽은 뒤 kakao.maps.load() 로 준비되면 사용 */-->
+<script src="https://t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"></script>
+<!--/* [변경]2026.11.12권성애 (키를 화면에서 직접 읽던 @environment → 컨트롤러가 넘긴 kakaoJsKey) */-->
+<script th:if="${kakaoJsKey != null and !#strings.isEmpty(kakaoJsKey)}"
+        th:src="|https://dapi.kakao.com/v2/maps/sdk.js?appkey=${kakaoJsKey}&libraries=services&autoload=false|"></script>
+
+<!--/* th:inline="javascript" : 스크립트 안의 [[${...}]] 를 자바스크립트 값으로 안전하게 바꾼다.
+       문자열은 따옴표와 이스케이프가 자동으로 붙고, null 은 null 로 들어간다.
+       restaurantId : 수정이면 RestaurantResponse.getId(), 등록이면 null */-->
+<script th:inline="javascript">
+const restaurantId = /*[[${restaurant != null} ? ${restaurant.id} : null]]*/ null;
+const isEdit = restaurantId !== null;
+
+// [추가]2026.11.11권성애 사진 업로드는 저장 버튼을 누를 때 → 그때까지 고른 파일을 기억
+let selectedImageFile = null;     // 고른 사진 파일 (아직 안 올림)
+let previewObjectUrl = null;      // 미리보기용 내 PC 파일 주소(blob:) — 바꿀 때 해제해서 메모리 정리
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024;                       // 5MB (서버 multipart 설정과 같음)
+const ALLOWED_IMAGE_EXT = ['jpg', 'jpeg', 'png', 'gif', 'webp']; // FileService.ALLOWED_EXTENSIONS 와 같음
+const MAX_TEXT = 500;                                          // 소개글 · 대표메뉴 · 영업시간 최대 글자 수
+
+// ─────────────────────────────────────────────────────────
+// [추가]2026.11.11권성애 1. 주소 검색 창 열기 — 카카오(다음) 우편번호 서비스, 키 필요 없음
+// ─────────────────────────────────────────────────────────
+function kakaoAddressSearchNoKey() {
+
+   console.log("주소버튼 클릭!");
+    new daum.Postcode({
+        oncomplete: kakaoSelectAddressApplyNoKey   // 주소를 고르면 2번 함수가 결과(data)를 받음
+    }).open();
+}
+
+// [추가]2026.11.11권성애 2. 고른 주소를 주소 칸에 넣기 + 부산 주소인지 검사 → 3번 호출 (키 필요 없음)
+//   data.sido : 시·도 ("부산"), data.roadAddress : 도로명 주소 ("부산 해운대구 해운대해변로 264")
+function kakaoSelectAddressApplyNoKey(data) {
+    hideError();
+    const kakaoAddress = data.roadAddress || data.jibunAddress;   // 도로명이 없으면 지번
+    if (data.sido !== '부산') {                               // 팀 결정: 부산 밖 주소는 막음 (서버도 한 번 더 검사)
+        document.getElementById('address').value = '';
+        clearHiddenLatLng();
+        showError('부산 지역 주소만 등록할 수 있습니다.');
+        return;
+    }
+    // [변경]2026.11.12권성애 (카카오 결과 "부산 …"을 화면에서도 "부산광역시 …"로 바꿔 넣음, 서버 변환은 그대로)
+    const address = kakaoAddress.replace(/^부산 /, '부산광역시 ');
+    document.getElementById('address').value = address;
+    clearHiddenLatLng();                                      // 주소가 바뀌었으니 좌표를 새로 찾음
+    kakaoSearchLatLngGeocode(kakaoAddress);                   // 좌표 검색은 카카오 원래 주소로 (가장 정확)
+    findSameAddressStores(address);                           // [추가]2026.11.12권성애 같은 주소에 등록된 맛집 안내
+}
+
+// [추가]2026.11.12권성애 주소 검색 직후: 같은 주소에 이미 등록된 맛집이 있으면 노란 안내 (저장은 막지 않음)
+//   GET /api/restaurants/sameaddress?address=… → RestaurantApiController · RestaurantService ·
+//   RestaurantRepository 의 findSameAddressStores (JS와 이름을 같게)
+//   진짜 같은 가게(이름까지 같거나 포함)는 저장할 때 서버(checkIfSameStoreAtSave)가 막음
+function findSameAddressStores(address) {
+    const msg = document.getElementById('notifyMsgIfSameAddress');
+    msg.classList.add('d-none');
+    fetchJson('/api/restaurants/sameaddress?address=' + encodeURIComponent(address))
+        .then(function (r) {
+            if (!r.ok) return;                                // 안내용이라 실패해도 조용히 넘어감
+            const stores = r.body.stores || [];
+            const nameNow = document.getElementById('name').value.trim();
+            // 수정 화면에서 자기 자신만 나오면 안내하지 않음
+            const others = isEdit ? stores.filter(function (n) { return n !== nameNow; }) : stores;
+            if (others.length === 0) return;
+            msg.textContent = '이 주소에 이미 등록된 맛집: ' + others.join(', ') + ' — 같은 가게라면 등록하지 말고 그 맛집을 이용해 주세요.';
+            msg.classList.remove('d-none');
+        })
+        .catch(function () { /* 안내용이라 무시 */ });
+}
+
+// [추가]2026.11.11권성애 3. 주소 → 위도 · 경도 (카카오 지도 SDK의 Geocoder, JS 키 필요)
+//   결과 y = 위도(lat), x = 경도(lng)
+function kakaoSearchLatLngGeocode(address) {
+    if (typeof kakao === 'undefined' || !kakao.maps) {        // 키가 없어 SDK 스크립트를 안 넣었거나 도메인 미등록
+        showError('카카오 키 설정이 없어 주소 좌표를 찾을 수 없습니다. 관리자에게 문의해 주세요.');
+        return;
+    }
+    kakao.maps.load(function () {                             // autoload=false 라서 준비된 뒤 사용
+        const geocoder = new kakao.maps.services.Geocoder();
+        geocoder.addressSearch(address, function (result, status) {
+            if (status === kakao.maps.services.Status.OK && result.length > 0) {
+                setHiddenLatLng(result[0].y, result[0].x);
+            } else {
+                showError('주소의 위치를 찾지 못했습니다. 주소를 다시 선택해 주세요.');
+            }
+        });
+    });
+}
+
+// [추가]2026.11.11권성애 4. hidden 위도 · 경도 채우기 / 비우기
+function setHiddenLatLng(lat, lng) {
+    document.getElementById('lat').value = lat;
+    document.getElementById('lng').value = lng;
+}
+function clearHiddenLatLng() {
+    document.getElementById('lat').value = '';
+    document.getElementById('lng').value = '';
+}
+
+// [추가]2026.11.11권성애 5. 글자 수 표시 — 소개글 · 대표메뉴 · 영업시간 공용
+//   textId: 입력칸 id, countId: 숫자를 보여 줄 span id
+function textCount(textId, countId) {
+    document.getElementById(countId).textContent = document.getElementById(textId).value.length;
+}
+
+// [추가]2026.11.11권성애 6. 사진 파일 검사 — 확장자 · 5MB (서버도 같은 규칙으로 한 번 더 검사)
+//   통과하면 true, 아니면 안내 후 false
+function checkImageFile(file) {
+    const ext = file.name.includes('.') ? file.name.split('.').pop().toLowerCase() : '';
+    if (!ALLOWED_IMAGE_EXT.includes(ext)) {
+        showError('jpg · png · gif · webp 사진만 올릴 수 있습니다.');
+        return false;
+    }
+    if (file.size > MAX_IMAGE_BYTES) {
+        showError('사진은 5MB 이하만 올릴 수 있습니다. (지금 ' + (file.size / 1024 / 1024).toFixed(1) + 'MB)');
+        return false;
+    }
+    return true;
+}
+
+// [추가]2026.11.11권성애 7. 저장할 때 새 사진 업로드 → 받은 주소를 돌려줌 (Promise)
+//   새로 고른 사진이 없으면 지금 imageUrl(기존 사진 또는 빈 값)을 그대로 돌려줌
+function uploadImageOnSave() {
+    if (!selectedImageFile) {
+        return Promise.resolve(document.getElementById('imageUrl').value || null);
+    }
+    const formData = new FormData();
+    formData.append('file', selectedImageFile);   // FileApiController 의 @RequestParam("file")
+    formData.append('folder', 'restaurant');      // [추가]2026.11.12권성애 S3 맛집 폴더 images/restaurant/ (@RequestParam("folder"))
+    blockSaveDuringUpload(true);
+    // [변경]2026.11.12권성애 (/api/files/upload → /api/files/uploadfors3only : S3 전용 + 폴더 구분, 기존 주소는 공용이라 그대로 둠)
+    return fetchJson('/api/files/uploadfors3only', { method: 'POST', body: formData })
+        .then(function (r) {
+            if (!r.ok) {
+                throw new Error(r.body.error || '사진 업로드에 실패했습니다.');
+            }
+            document.getElementById('imageUrl').value = r.body.url;
+            selectedImageFile = null;               // 올렸으니 다시 저장할 때 또 올리지 않음
+            return r.body.url;
+        })
+        .finally(function () {
+            blockSaveDuringUpload(false);
+        });
+}
+
+// [추가]2026.11.11권성애 8. 업로드하는 동안 저장 버튼 막기 (두 번 누르기 방지)
+function blockSaveDuringUpload(isBlocked) {
+    const btn = document.getElementById('saveBtn');
+    if (!btn.dataset.label) btn.dataset.label = btn.textContent;   // 원래 글자 기억
+    btn.disabled = isBlocked;
+    btn.textContent = isBlocked ? '사진 올리는 중…' : btn.dataset.label;
+}
+
+// [추가]2026.11.11권성애 9. 미리보기 보이기 / 숨기기
+//   깨지면(onerror) 카테고리 기본 이미지 (/images/category/korean.svg 등, 카테고리를 안 골랐으면 etc.svg)
+function showImagePreview(url) {
+    const preview = document.getElementById('imagePreview');
+    preview.onerror = function () {
+        this.onerror = null;                                          // 기본 이미지도 깨지면 반복하지 않게
+        const cat = document.getElementById('category').value || 'ETC';
+        this.src = '/images/category/' + cat.toLowerCase() + '.svg';
+    };
+    preview.src = url;
+    preview.classList.remove('d-none');
+}
+function hideImagePreview() {
+    const preview = document.getElementById('imagePreview');
+    preview.classList.add('d-none');
+    preview.removeAttribute('src');
+}
+
+// [추가]2026.11.11권성애 10. [사진 삭제] — 고른 사진 · 기존 사진 모두 비움 (저장해야 반영)
+function removeUploadImage() {
+    selectedImageFile = null;
+    if (previewObjectUrl) {
+        URL.revokeObjectURL(previewObjectUrl);
+        previewObjectUrl = null;
+    }
+    document.getElementById('imageFile').value = '';
+    document.getElementById('imageUrl').value = '';
+    hideImagePreview();
+}
+
+// [추가]2026.11.11권성애 11. 저장 직전 검사 — 문제가 있으면 안내 문구, 없으면 null
+//   업로드보다 먼저 검사해서 "사진은 올라갔는데 저장 실패"를 줄임 (서버도 같은 검사를 한 번 더 함)
+function validateFormBeforeSave(data) {
+    if (!data.name) return '맛집 이름을 입력해주세요.';
+    if (!data.category) return '카테고리를 선택해주세요.';
+    if (!data.address) return '[주소 검색]으로 주소를 선택해주세요.';
+    if (!/^부산(광역시)? /.test(data.address)) return '부산 지역 주소만 등록할 수 있습니다.';
+    if (data.lat === null || data.lng === null) return '주소의 위치(위도·경도)를 찾지 못했습니다. 주소를 다시 선택해 주세요.';
+    // [추가]2026.11.12권성애 등록할 때만 필수: 소개글 · 대표메뉴 · 영업시간 (수정할 때는 선택, 서버 save() 도 같은 검사)
+    if (!isEdit) {
+        if (!data.description) return '소개글을 입력해주세요.';
+        if (!data.representativeMenu) return '대표메뉴를 입력해주세요.';
+        if (!data.businessHours) return '영업시간을 입력해주세요.';
+    }
+    // 줄바꿈은 서버로 갈 때 \r\n(2글자)로 셀 수 있어 \n을 2글자로 쳐서 넉넉히 검사
+    // [변경]2026.11.12권성애 [[ 가 타임리프 식으로 읽히지 않게 [ [ 로 띄움
+    const items = [ ['소개글', data.description], ['대표메뉴', data.representativeMenu], ['영업시간', data.businessHours] ];
+
+    for (const [label, text] of items) {
+        if (text && text.replace(/\n/g, '\r\n').length > MAX_TEXT) {
+            return label + '은(는) ' + MAX_TEXT + '자 이내로 입력해주세요. (줄바꿈은 2글자로 계산)';
+        }
+    }
+    return null;
+}
+
+// [추가]2026.11.11권성애 12. 등록(POST) / 수정(PUT) — 11 검사 → 7 사진 업로드 → 저장
+function submitRestaurant(e) {
+    e.preventDefault();
+    hideError();
+    const latValue = document.getElementById('lat').value;
+    const lngValue = document.getElementById('lng').value;
+    const detail = document.getElementById('addressDetail').value.trim();
+    const baseAddress = document.getElementById('address').value.trim();
+    const data = {
+        name: document.getElementById('name').value.trim(),
+        category: document.getElementById('category').value,
+        address: detail ? baseAddress + ' ' + detail : baseAddress,     // 상세 주소는 뒤에 붙임
+        phone: document.getElementById('phone').value.trim(),
+        description: document.getElementById('description').value.trim(),
+        representativeMenu: document.getElementById('representativeMenu').value.trim() || null,
+        businessHours: document.getElementById('businessHours').value.trim() || null,
+        lat: latValue ? Number(latValue) : null,
+        lng: lngValue ? Number(lngValue) : null,
+        imageUrl: null                                                  // 아래 uploadImageOnSave() 결과로 채움
+    };
+    const problem = validateFormBeforeSave(data);
+    if (problem) {
+        showError(problem);
+        return;
+    }
+    uploadImageOnSave()
+        .then(function (url) {
+            data.imageUrl = url;
+            return fetchJson(isEdit ? '/api/restaurants/' + restaurantId : '/api/restaurants', {
+                method: isEdit ? 'PUT' : 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+        })
+        .then(function (r) {
+            if (r.ok) {
+                window.location.href = '/restaurants/' + r.body.id;
+            } else {
+                showError(r.body.error || '저장에 실패했습니다.');
+            }
+        })
+        .catch(function (err) {
+            showError(err && err.message ? err.message : '서버 오류가 발생했습니다.');
+        });
+}
+
+// [추가]2026.11.11권성애 13. 빨간 오류 칸(errorMsg) 보이기 / 숨기기
+function showError(message) {
+    const errorMsg = document.getElementById('errorMsg');
+    errorMsg.textContent = message;
+    errorMsg.classList.remove('d-none');
+    errorMsg.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+function hideError() {
+    document.getElementById('errorMsg').classList.add('d-none');
+}
+
+// ── 이벤트 연결 ─────────────────────────────────────────────
+// (수정: 사진은 고르자마자 올리지 않고 미리보기만 — 업로드는 저장할 때 uploadImageOnSave)  [추가]2026.11.11권성애
+document.getElementById('imageFile').addEventListener('change', function () {
+    hideError();
+    const file = this.files[0];
+    if (!file) return;
+    if (!checkImageFile(file)) {
+        this.value = '';
+        return;
+    }
+    selectedImageFile = file;
+    if (previewObjectUrl) URL.revokeObjectURL(previewObjectUrl);
+    previewObjectUrl = URL.createObjectURL(file);    // 내 PC 파일을 서버에 보내지 않고 미리보기
+    showImagePreview(previewObjectUrl);
+});
+
+document.getElementById('addressSearchBtn').addEventListener('click', kakaoAddressSearchNoKey);   // [추가]2026.11.11권성애
+document.getElementById('removeImageBtn').addEventListener('click', removeUploadImage);           // [추가]2026.11.11권성애
+
+// [추가]2026.11.11권성애 글자 수: 입력할 때마다 + 처음 열 때(수정 화면 기존 글자) 한 번
+// [변경]2026.11.12권성애 [[ 가 타임리프 식으로 읽히지 않게 [ [ 로 띄움
+[ ['description', 'descriptionCount'], ['representativeMenu', 'representativeMenuCount'], ['businessHours', 'businessHoursCount'] ]
+    .forEach(function (pair) {
+        document.getElementById(pair[0]).addEventListener('input', function () { textCount(pair[0], pair[1]); });
+        textCount(pair[0], pair[1]);
+    });
+
+// [추가]2026.11.11권성애 수정 화면: 기존 사진이 깨질 때를 대비해 onerror(기본 이미지)를 붙여 다시 표시
+if (isEdit && document.getElementById('imageUrl').value) {
+    showImagePreview(document.getElementById('imageUrl').value);
+}
+
+// (수정: 저장 코드는 submitRestaurant() 로 옮김)  [추가]2026.11.11권성애
+document.getElementById('restaurantForm').addEventListener('submit', submitRestaurant);
+</script>
+</body>
+</html>
