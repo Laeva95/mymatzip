@@ -141,7 +141,8 @@ public class WishlistService {
         // restaurantRepository.findById(restaurantId): DB에서 해당 ID의 맛집을 조회
         // .orElseThrow(): 맛집이 존재하지 않으면 예외 발생
         // → 존재하지 않는 맛집을 찜할 수 없으므로 사전 확인
-        Restaurant restaurant = restaurantRepository.findById(restaurantId)
+        //[변경]2026.11.11권성애 (수정: findById → 삭제 안 된 맛집만)
+        Restaurant restaurant = restaurantRepository.findByIdAndDeletedAtIsNull(restaurantId)
                 .orElseThrow(() -> new IllegalArgumentException("맛집을 찾을 수 없습니다."));
 
         // [3단계] Wishlist 엔티티 객체 생성 (빌더 패턴 사용)

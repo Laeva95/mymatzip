@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300" role="img" aria-label="해산물·회 기본 이미지">
+<rect width="400" height="300" fill="#DDEBF3"/>
+<ellipse cx="200" cy="130" rx="130" ry="58" fill="#FFFFFF" stroke="#B9CFDC" stroke-width="3"/>
+<path d="M96 132 q20 -30 44 -20 q-10 26 -44 20 Z" fill="#7BB661"/>
+<path d="M110 156 q30 -18 52 2" fill="none" stroke="#FFFFFF" stroke-width="10" stroke-linecap="round"/>
+<g>
+<path d="M142 150 Q156 96 186 92 Q190 130 170 158 Z" fill="#F7A889"/>
+<path d="M152 140 Q162 110 180 102" fill="none" stroke="#FFFFFF" stroke-width="3" opacity="0.8"/>
+<path d="M174 156 Q190 100 222 96 Q222 134 200 162 Z" fill="#F08A5D"/>
+<path d="M184 144 Q194 114 214 106" fill="none" stroke="#FFFFFF" stroke-width="3" opacity="0.8"/>
+<path d="M206 160 Q224 104 256 102 Q254 140 232 166 Z" fill="#F7A889"/>
+<path d="M216 148 Q228 118 248 112" fill="none" stroke="#FFFFFF" stroke-width="3" opacity="0.8"/>
+<path d="M240 164 Q256 112 288 110 Q286 146 264 168 Z" fill="#F5F0EA" stroke="#E5DDD2" stroke-width="2"/>
+</g>
+<circle cx="300" cy="150" r="10" fill="#F2C94C"/>
+<path d="M286 110 q14 -6 22 6" fill="none" stroke="#7BB661" stroke-width="4" stroke-linecap="round"/>
+<path d="M322 66 q22 -10 34 8 q-12 16 -34 8 l-12 8 l2 -12 l-2 -12 Z" fill="#5E8FAE"/>
+<circle cx="344" cy="72" r="2.5" fill="#FFFFFF"/>
+<text x="200" y="250" text-anchor="middle" font-size="30" font-weight="700" fill="#2C5A74" font-family="Noto Sans KR, Apple SD Gothic Neo, Malgun Gothic, sans-serif">해산물·회</text>
+</svg>

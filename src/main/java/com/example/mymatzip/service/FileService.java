@@ -2,6 +2,7 @@ package com.example.mymatzip.service;
 
 import com.example.mymatzip.entity.Image;
 import com.example.mymatzip.repository.ImageRepository;
+import lombok.extern.slf4j.Slf4j;                                    // [추가]2026.11.11권성애 로그 (log.info / log.warn)
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -29,7 +30,16 @@ import java.util.regex.Pattern;
 //   local : 프로젝트 폴더의 uploads/ 에 저장 → 주소 /uploads/파일이름   (내 PC 개발용)
 //   s3    : AWS S3 버킷의 images/ 에 저장   → 주소 /api/files/파일이름 (EC2 배포용)
 // S3 버킷은 비공개로 두고, 사진은 FileApiController 의 GET /api/files/{filename} 이 S3 에서 읽어 응답한다.
+// [추가]2026.11.11권성애 삭제: 맛집 소프트 삭제 · 사진 교체 때 RestaurantService 가 부름
+//   deleteImageRecord() : image 테이블 기록 [변경]2026.11.12권성애 삭제(DELETE) → 소프트 삭제(deleted_at 기록), 맛집 삭제 · 수정과 같은 트랜잭션 안에서
+//   [변경]2026.11.12권성애 deleteQuietly()(S3 · uploads 파일 삭제) 없앰 — 사진 파일은 코드에서 지우지 않고 개발자가 AWS 콘솔에서 직접 삭제
+//     (SdkException · DeleteObjectRequest import 도 함께 없앰)
+// [추가]2026.11.12권성애 S3 전용 + 폴더 구분 (기존 upload() · download() 는 공용이라 그대로 두고 추가)
+//   uploadForS3Only(file, folder)       : images/{folder}/UUID.확장자 에 저장 → /api/files/{folder}/UUID.확장자
+//   downloadForS3Only(folder, filename) : S3 의 images/{folder}/파일이름 읽기
+//   folder 는 "restaurant" · "review" 두 가지만 (경로 조작 방지). S3 설정이 없으면 "사진 저장소(S3) 설정이 없습니다"
 // ============================================================
+@Slf4j      // [추가]2026.11.11권성애
 @Service
 public class FileService {
 
@@ -153,6 +163,129 @@ public class FileService {
 
     // 파일 내용 + 형식(image/png 등)
     public record StoredFile(byte[] bytes, String contentType) {}
+
+    // [변경]2026.11.12권성애 deleteQuietly() 없앰 (S3 · uploads 파일 삭제) — 사진 파일은 개발자가 AWS 콘솔에서 직접 삭제
+    //   지울 목록: SELECT file_path, deleted_at FROM image WHERE deleted_at IS NOT NULL;  (file_path = s3://버킷/images/restaurant/UUID.jpg)
+
+    /**
+     * [추가]2026.11.11권성애 image 테이블의 업로드 기록 정리
+     *  [변경]2026.11.12권성애 기록 삭제(DELETE) → <b>소프트 삭제</b>(deleted_at 기록). S3 파일은 지우지 않음(개발자가 직접)
+     *  맛집 삭제 · 수정과 <b>같은 트랜잭션 안에서</b> 부름 → 맛집 저장이 실패하면 삭제 표시도 함께 되돌아감
+     *  찾은 Image 의 값만 바꾸면 트랜잭션이 끝날 때 변경 감지로 UPDATE 자동 실행 (save() 불필요)
+     *  기록이 없으면(공공 API 외부 URL · 기록 없이 올라간 예전 사진) 그냥 넘어감
+     * 호출하는 곳: RestaurantService.delete() · update()
+     */
+    public void deleteImageRecord(String imageUrl) {
+        String filename = storedNameOf(imageUrl);
+        if (filename == null) {
+            return;                                           // 우리 파일이 아님 → 기록도 없음
+        }
+        // [변경]2026.11.12권성애 폴더가 붙어 있으면("restaurant/UUID.jpg") 마지막 / 뒤의 파일 이름만 — image 테이블에는 파일 이름만 저장됨
+        String storedFileName = filename.substring(filename.lastIndexOf('/') + 1);
+        // [변경]2026.11.12권성애 DELETE → 찾아서 소프트 삭제
+        //   findByStoredFileName: SELECT * FROM image WHERE stored_file_name = ? (메서드 이름으로 만드는 쿼리)
+        //   ifPresent(Image::softDelete): 찾았을 때만 softDelete() 호출 → UPDATE image SET deleted_at = ? WHERE id = ?
+        imageRepository.findByStoredFileName(storedFileName)
+                .ifPresent(Image::softDelete);
+    }
+
+    // [추가]2026.11.11권성애 "/api/files/UUID.jpg" · "/uploads/UUID.jpg" → "UUID.jpg" (우리 파일 이름 규칙이 아니면 null)
+    //   STORED_NAME 검사는 download() 와 같음 → "../" 같은 경로 조작 방지
+    private String storedNameOf(String imageUrl) {
+        if (imageUrl == null) {
+            return null;
+        }
+        String filename;
+        if (imageUrl.startsWith("/api/files/")) {
+            filename = imageUrl.substring("/api/files/".length());
+        } else if (imageUrl.startsWith("/uploads/")) {
+            filename = imageUrl.substring("/uploads/".length());
+        } else {
+            return null;
+        }
+        // [변경]2026.11.12권성애 폴더가 붙은 새 주소(/api/files/restaurant/UUID.jpg)도 알아봄 → "restaurant/UUID.jpg" 를 돌려줌
+        //   폴더는 restaurant · review 만, 파일 이름은 STORED_NAME 규칙만 (그 밖은 null → 지우지 않음)
+        int slash = filename.indexOf('/');
+        if (slash >= 0) {
+            String folder = filename.substring(0, slash);
+            String name = filename.substring(slash + 1);
+            boolean okFolder = "restaurant".equals(folder) || "review".equals(folder);
+            return (okFolder && STORED_NAME.matcher(name).matches()) ? folder + "/" + name : null;
+        }
+        return STORED_NAME.matcher(filename).matches() ? filename : null;
+    }
+
+    /**
+     * [추가]2026.11.12권성애 사진 올리기 — S3 전용 + 폴더 구분 (기존 upload() 는 공용이라 그대로 두고 추가)
+     *  저장 위치: S3 images/{folder}/UUID.확장자,  돌려주는 주소: /api/files/{folder}/UUID.확장자
+     *  folder: "restaurant"(맛집) · "review"(리뷰)만
+     *  S3 설정이 없으면(app.storage 가 s3 가 아니면) IllegalStateException "사진 저장소(S3) 설정이 없습니다"
+     * 호출: FileApiController.uploadForS3Only() ← form.html uploadImageOnSave() (folder=restaurant)
+     */
+    public String uploadForS3Only(MultipartFile file, String folder) throws IOException {
+        if (!isS3()) {
+            throw new IllegalStateException("사진 저장소(S3) 설정이 없습니다.");
+        }
+        if (!"restaurant".equals(folder) && !"review".equals(folder)) {
+            throw new IllegalArgumentException("사진 폴더는 restaurant 또는 review 만 쓸 수 있습니다.");
+        }
+        // 파일 검사는 기존 upload() 와 같음 (빈 파일 · 확장자 · 이미지 형식)
+        if (file.isEmpty()) {
+            throw new IllegalArgumentException("파일이 비어있습니다.");
+        }
+        String originalFilename = file.getOriginalFilename();
+        String extension = getExtension(originalFilename).toLowerCase();
+        if (!ALLOWED_EXTENSIONS.contains(extension)) {
+            throw new IllegalArgumentException("허용되지 않는 파일 형식입니다. (jpg, png, gif, webp만 가능)");
+        }
+        String contentType = file.getContentType();
+        if (contentType == null || !contentType.startsWith("image/")) {
+            throw new IllegalArgumentException("이미지 파일만 올릴 수 있습니다.");
+        }
+
+        String savedFilename = UUID.randomUUID() + "." + extension;
+        String key = S3_PREFIX + folder + "/" + savedFilename;                   // images/restaurant/UUID.jpg
+        s3Client.putObject(PutObjectRequest.builder()
+                        .bucket(bucket)
+                        .key(key)
+                        .contentType(contentType)
+                        .build(),
+                RequestBody.fromInputStream(file.getInputStream(), file.getSize()));
+
+        // 업로드 기록 (기존 upload() 와 같은 항목). storedFileName 에는 파일 이름만 → 삭제할 때 deleteImageRecord 가 찾음
+        imageRepository.save(Image.builder()
+                .originalFileName(originalFilename)
+                .storedFileName(savedFilename)
+                .filePath("s3://" + bucket + "/" + key)
+                .fileSize(file.getSize())
+                .contentType(contentType)
+                .build());
+        return "/api/files/" + folder + "/" + savedFilename;
+    }
+
+    /**
+     * [추가]2026.11.12권성애 사진 읽기 — S3 전용 + 폴더 구분 (기존 download() 는 공용이라 그대로 두고 추가)
+     *  S3 images/{folder}/{filename} 을 읽음. 없으면 null → 컨트롤러가 404
+     * 호출: FileApiController.downloadForS3Only() ← 화면의 &lt;img src="/api/files/restaurant/UUID.jpg"&gt;
+     */
+    public StoredFile downloadForS3Only(String folder, String filename) {
+        if (!"restaurant".equals(folder) && !"review".equals(folder)) {
+            throw new IllegalArgumentException("잘못된 사진 폴더입니다.");
+        }
+        if (!STORED_NAME.matcher(filename).matches()) {
+            throw new IllegalArgumentException("잘못된 파일 이름입니다.");
+        }
+        if (!isS3()) {
+            throw new IllegalStateException("사진 저장소(S3) 설정이 없습니다.");
+        }
+        try {
+            ResponseBytes<GetObjectResponse> bytes = s3Client.getObjectAsBytes(
+                    GetObjectRequest.builder().bucket(bucket).key(S3_PREFIX + folder + "/" + filename).build());
+            return new StoredFile(bytes.asByteArray(), bytes.response().contentType());
+        } catch (NoSuchKeyException e) {
+            return null;
+        }
+    }
 
     private String getExtension(String filename) {
         if (filename == null || !filename.contains(".")) {

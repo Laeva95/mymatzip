@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300" role="img" aria-label="일식 기본 이미지">
+<rect width="400" height="300" fill="#E4ECEF"/>
+<rect x="90" y="150" width="220" height="26" rx="8" fill="#9C7650"/>
+<rect x="104" y="176" width="16" height="16" fill="#7E5C3C"/><rect x="280" y="176" width="16" height="16" fill="#7E5C3C"/>
+<rect x="118" y="112" width="74" height="40" rx="16" fill="#FFFFFF"/>
+<path d="M114 116 Q155 84 196 112 L190 126 Q155 104 120 128 Z" fill="#F08A5D"/>
+<path d="M140 104 l6 14 M158 100 l6 14 M176 104 l6 14" stroke="#FBC4A8" stroke-width="3" stroke-linecap="round"/>
+<rect x="208" y="112" width="74" height="40" rx="16" fill="#FFFFFF"/>
+<path d="M204 116 Q245 84 286 112 L280 126 Q245 104 210 128 Z" fill="#F08A5D"/>
+<path d="M230 104 l6 14 M248 100 l6 14 M266 104 l6 14" stroke="#FBC4A8" stroke-width="3" stroke-linecap="round"/>
+<line x1="96" y1="80" x2="304" y2="64" stroke="#3A3A38" stroke-width="6" stroke-linecap="round"/>
+<line x1="96" y1="92" x2="304" y2="76" stroke="#3A3A38" stroke-width="6" stroke-linecap="round"/>
+<text x="200" y="250" text-anchor="middle" font-size="30" font-weight="700" fill="#2E4A57" font-family="Noto Sans KR, Apple SD Gothic Neo, Malgun Gothic, sans-serif">일식</text>
+</svg>

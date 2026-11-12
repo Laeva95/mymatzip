@@ -1,6 +1,7 @@
 package com.example.mymatzip.entity; // 이 파일이 속한 패키지(폴더) 선언
 // com.example.mymatzip.entity = entity 패키지 안에 있다는 뜻
 // 같은 패키지 안의 Category.java, Member.java를 import 없이 바로 사용 가능
+// [추가]2026.11.11권성애 Source.java(출처 enum)도 같은 패키지라 import 없이 사용
 
 // ──────────────────────────────────────────────────────────
 // import (임포트) 선언 영역
@@ -21,6 +22,7 @@ import org.hibernate.annotations.OnDeleteAction;
 //   @JoinColumn -- 외래키(FK) 컬럼명 설정
 //   FetchType -- 데이터 로딩 전략 (LAZY / EAGER)
 //   GenerationType, EnumType -- 각종 전략 상수
+//   [추가]2026.11.11권성애 @Table, @UniqueConstraint -- 테이블 이름 · 유니크 제약(이름+주소) 설정
 
 import lombok.AccessLevel;
 // Lombok의 접근 수준 열거형. @NoArgsConstructor에서 PROTECTED 수준을 지정하기 위해 사용
@@ -59,8 +61,15 @@ import java.time.LocalDateTime;
 //   | 1  | 김치찌개명가  | KOREAN   | 서울시 강남구   | 02-1234-5678 | 30년 전통 맛집    | 1         | 2026-03-13 10:00:00 |
 //   | 2  | 스시오마카세  | JAPANESE | 서울시 종로구   | null         | null             | 2         | 2026-03-13 11:00:00 |
 //
+// [추가]2026.11.11권성애 공공 API 배치 수집을 위해 바뀐 점
+//   1. 컬럼 추가: representative_menu(대표메뉴), business_hours(영업시간), lat · lng(위도 · 경도), source(출처)
+//   2. description: varchar(500) → TEXT (공공 API 소개글이 500자를 넘을 수 있음. 회원 입력은 폼에서 500자 제한)
+//   3. 유니크 제약: (name, address) — 같은 이름 + 같은 주소의 맛집은 한 번만 저장
+//   ※ 테이블 반영: ddl-auto=create 1회 실행 → 이후 update + sql.init.mode=never 로 전환
+//
 // 관계(Relationship):
 //   Member(회원) 1명 → Restaurant(맛집) 여러 개 등록 가능 (1:N 관계)
+//   [추가]2026.11.11권성애 공공 API로 수집한 맛집의 등록자 = 배치를 실행한 관리자
 //
 // 이 엔티티가 사용되는 곳들:
 //   1. RestaurantService -- 맛집 등록, 수정, 삭제, 조회 비즈니스 로직
@@ -70,6 +79,7 @@ import java.time.LocalDateTime;
 //   5. Review 엔티티 -- 리뷰가 달린 맛집 정보 (restaurant 필드)
 //   6. Wishlist 엔티티 -- 찜된 맛집 정보 (restaurant 필드)
 //   7. RestaurantResponse (DTO) -- 맛집 정보를 화면에 전달할 때 사용
+//   8. [추가]2026.11.11권성애 PublicRestaurantImportService -- 공공 API 맛집 배치 수집
 // ============================================================
 
 // @Entity: 이 클래스 = DB의 restaurant 테이블
@@ -77,9 +87,20 @@ import java.time.LocalDateTime;
 //   테이블명: 클래스명(Restaurant) → 소문자 "restaurant"로 자동 변환
 @Entity
 
+// [추가]2026.11.11권성애 @Table(uniqueConstraints = ...): 이름 + 주소 유니크 제약
+//   같은 이름과 같은 주소를 가진 행을 DB가 두 번 저장하지 못하게 막습니다.
+//   배치는 저장 전에 existsByNameAndAddress()로 먼저 검사하고, 이 제약은 최종 안전장치입니다.
+//   회원 등록에서 중복이면 DataIntegrityViolationException → RestaurantService에서 안내 메시지로 바꿔야 합니다.
+//   주의: 기존 데이터에 같은 이름+주소가 이미 있으면 제약 생성이 실패합니다.
+@Table(
+        name = "restaurant",
+        uniqueConstraints = @UniqueConstraint(name = "uk_restaurant_name_address", columnNames = {"name", "address"})
+)
+
 // @Getter: 모든 필드의 getXxx() 메서드를 Lombok이 자동 생성
 //   getId(), getName(), getCategory(), getAddress(), getPhone(),
 //   getDescription(), getMember(), getCreatedAt() -- 총 8개 자동 생성
+//   [추가]2026.11.11권성애 getRepresentativeMenu(), getBusinessHours(), getLat(), getLng(), getSource()도 자동 생성
 @Getter
 
 // @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -131,6 +152,7 @@ public class Restaurant {
 
     // Category category: 맛집의 음식 카테고리 (Category.java에서 정의한 enum 타입)
     //   가능한 값: KOREAN(한식), CHINESE(중식), JAPANESE(일식), WESTERN(양식), CAFE(카페), ETC(기타)
+    //   [추가]2026.11.11권성애 SEAFOOD(해산물·회), MEAT(고기·구이), SOUP(국밥·탕) 추가
     private Category category;
 
     // @Column(nullable = false): 주소는 필수값. 주소 없는 맛집은 불가
@@ -139,6 +161,8 @@ public class Restaurant {
 
     // String address: 가게 주소를 저장하는 필드
     //   예: "서울시 강남구 역삼로 123", "부산시 해운대구 해운대로 456"
+    //   [추가]2026.11.11권성애 공공 API 데이터는 "부산광역시 "로 시작하도록 통일해서 저장
+    //     (화면 표시 · 이름+주소 유니크 판단 · 카카오 주소 검색 정확도)
     private String address;
 
     // phone 필드에는 @Column 어노테이션이 없습니다.
@@ -157,7 +181,10 @@ public class Restaurant {
     //   nullable 설정 없음 → 기본값 true → 비워둬도 됨 (선택값)
     //   [사용 화면] 맛집 상세 페이지 -- 가게 소개글 영역
     //   [사용 화면] 맛집 등록 폼 -- 소개글 텍스트 영역 (textarea)
-    @Column(length = 500)
+    // [추가]2026.11.11권성애 (수정: @Column(length = 500) → @Column(columnDefinition = "TEXT"))
+    //   공공 API 소개글(ITEMCNTNTS)이 500자를 넘을 수 있어서 자르지 않고 저장하도록 TEXT로 변경.
+    //   회원이 직접 입력할 때는 RestaurantForm @Size(max = 500) + 화면 JS에서 500자로 제한.
+    @Column(columnDefinition = "TEXT")
 
     // String description: 가게 소개글/설명을 저장하는 필드 (선택값, null 가능)
     //   예: "30년 전통 김치찌개 전문점. 직접 담근 김치로 요리합니다."
@@ -170,7 +197,38 @@ public class Restaurant {
     // 예: null (이미지를 업로드하지 않은 경우)
     //   [사용 화면] 맛집 목록 카드 -- 대표 이미지 표시
     //   [사용 화면] 맛집 상세 페이지 -- 상단에 대표 이미지 표시
+    // [추가]2026.11.11권성애 저장되는 값의 종류
+    //   회원 업로드(local): "/uploads/UUID.jpg" / 회원 업로드(s3): "/api/files/UUID.jpg"
+    //   공공 API(부산맛집): "https://www.visitbusan.net/uploadImgs/..." 외부 주소 그대로
+    //   null이면 화면에서 카테고리 기본 이미지(Category.getDefaultImageUrl()), 깨지면 onerror로 같은 이미지
     private String imageUrl;
+
+    // [추가]2026.11.11권성애 대표 메뉴 (선택값, null 가능)
+    //   예: "돌솥곤드레정식, 단호박오리훈제"
+    //   공공 API: 부산맛집 RPRSNTV_MENU / 모범음식점 menu
+    @Column(length = 500)
+    private String representativeMenu;
+
+    // [추가]2026.11.11권성애 영업시간 (선택값, null 가능)
+    //   줄바꿈이 들어 있음 → 화면 CSS white-space: pre-line;
+    //   공공 API: 부산맛집 USAGE_DAY_WEEK_AND_TIME (모범음식점은 없음)
+    @Column(length = 500)
+    private String businessHours;
+
+    // [추가]2026.11.11권성애 위도 · 경도 (지도 마커, 길찾기, 내 주변 맛집)
+    //   공공 API: 응답 값 그대로 / 회원 등록: 카카오 지도 SDK Geocoder로 주소 → 좌표
+    //   지금 등록 폼에 좌표 입력이 없어서 null 허용
+    //   (카카오 지오코딩 JS를 붙인 뒤 RestaurantForm에 @NotNull 추가 예정)
+    private Double lat;
+    private Double lng;
+
+    // [추가]2026.11.11권성애 출처 — 회원 직접 등록인지, 어느 공공 API인지
+    //   폼에서 받지 않고 서버가 지정합니다 (개발자 도구로 조작 방지). 값이 없으면 생성자에서 MANUAL.
+    //   columnDefinition = "varchar(40)": MySQL enum 타입으로 만들지 않기 위해 지정
+    //     → 나중에 Source에 값을 추가해도 ALTER TABLE 없이 저장 가능
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, columnDefinition = "varchar(40)")
+    private Source source;
 
     // ──────────────────────────────────────────────────────────
     // 관계(Relationship) 필드 -- 다른 엔티티와의 연결을 표현합니다
@@ -229,6 +287,11 @@ public class Restaurant {
     //   DB 컬럼명: created_at (자바의 camelCase → DB의 snake_case 자동 변환)
     private LocalDateTime createdAt;
 
+    // [추가]2026.11.11권성애 소프트 삭제 시각 — null = 정상, 값 있음 = 삭제됨 (컬럼 이름은 자동으로 deleted_at, DATETIME(6) NULL)
+    //   맛집 행은 지우지 않고 이 값만 기록 → 리뷰 · 댓글 · 찜의 외래키가 그대로 유지됨
+    //   목록 · 검색 · 상세는 RestaurantRepository의 ...DeletedAtIsNull 메서드로 삭제된 맛집을 뺌
+    private LocalDateTime deletedAt;
+
     // ══════════════════════════════════════════════════════════
     // [팀 프로젝트] AI 리뷰 요약 캐시 (C 리뷰 담당)
     // ══════════════════════════════════════════════════════════
@@ -261,6 +324,11 @@ public class Restaurant {
     //   [참고] phone, description은 선택값이므로 빼고 .build()해도 됩니다.
     //   [참고] createdAt은 자동으로 현재 시간이 들어갑니다.
     //   [참고] id는 DB가 자동 생성하므로 넣지 않습니다.
+    //   [추가]2026.11.11권성애 [참고] 새 값(대표메뉴 · 영업시간 · lat · lng · source)은 빼고 .build()해도 됩니다.
+    //     → 기존 RestaurantService.save() 코드를 고치지 않아도 그대로 동작 (새 값은 null, source는 MANUAL)
+    //   [추가]2026.11.11권성애 공공 API 배치에서는:
+    //     Restaurant.builder()....representativeMenu(..).businessHours(..).lat(..).lng(..)
+    //         .source(Source.PUBLIC_API_BUSAN_FOOD).member(admin).build();
     @Builder
 
     // 매개변수 5개:
@@ -278,9 +346,17 @@ public class Restaurant {
     //   String description -- 소개글 (선택, null 가능)
     //   Member member -- 등록자 회원 객체 (필수)
     //   String imageUrl -- [Phase 7] 대표 이미지 URL (선택, null 가능)
+    // [추가]2026.11.11권성애 (수정: 매개변수 7개 → 12개, 아래 5개 추가)
+    //   String representativeMenu -- 대표 메뉴 (선택, null 가능)
+    //   String businessHours -- 영업시간 (선택, null 가능)
+    //   Double lat -- 위도 (선택, null 가능)
+    //   Double lng -- 경도 (선택, null 가능)
+    //   Source source -- 출처 (null이면 MANUAL)
     public Restaurant(String name, Category category, String address,
                       String phone, String description, Member member,
-                      String imageUrl) {
+                      String imageUrl,
+                      String representativeMenu, String businessHours,   // [추가]2026.11.11권성애
+                      Double lat, Double lng, Source source) {           // [추가]2026.11.11권성애
         this.name = name;
         // "이 맛집의 이름을 전달받은 이름으로 설정해라"
 
@@ -306,6 +382,20 @@ public class Restaurant {
         this.imageUrl = imageUrl;
         // [Phase 7] "이 맛집의 대표 이미지 URL을 설정해라"
         // null이 들어올 수 있음 (이미지를 업로드하지 않은 경우)
+
+        this.representativeMenu = representativeMenu;
+        // [추가]2026.11.11권성애 "이 맛집의 대표 메뉴를 설정해라" (null 가능)
+
+        this.businessHours = businessHours;
+        // [추가]2026.11.11권성애 "이 맛집의 영업시간을 설정해라" (null 가능)
+
+        this.lat = lat;
+        this.lng = lng;
+        // [추가]2026.11.11권성애 "이 맛집의 위도 · 경도를 설정해라" (null 가능)
+
+        this.source = (source != null) ? source : Source.MANUAL;
+        // [추가]2026.11.11권성애 "출처를 설정해라. 지정하지 않으면 회원 직접 등록(MANUAL)"
+        // RestaurantService.save()는 source를 넣지 않으므로 자동으로 MANUAL이 됩니다.
 
         this.createdAt = LocalDateTime.now();
         // 맛집 객체가 만들어지는 순간 = 맛집이 등록되는 순간이므로,
@@ -333,6 +423,7 @@ public class Restaurant {
      *   id: 기본키이므로 절대 변경하면 안 됨 (DB 무결성 파괴)
      *   member: 등록자는 바꿀 수 없음 (다른 사람의 맛집으로 둔갑 방지)
      *   createdAt: 등록일은 @Column(updatable=false)로 수정 불가
+     *   [추가]2026.11.11권성애 source: 출처도 바꾸지 않음 (처음 들어온 경로를 유지)
      *
      * [JPA의 "변경 감지(Dirty Checking)" 기능]
      *   이 메서드로 필드 값을 바꾸기만 하면, JPA가 자동으로 UPDATE SQL을 실행합니다.
@@ -369,6 +460,38 @@ public class Restaurant {
         this.imageUrl = imageUrl;
         // [Phase 7] "이 맛집의 대표 이미지 URL을 새로운 URL로 변경해라"
         // null이 들어올 수 있음 (이미지를 삭제하는 경우)
+    }
+
+    /**
+     * [추가]2026.11.11권성애 대표메뉴 · 영업시간 · 좌표 수정 메서드
+     *
+     * [왜 update()에 매개변수를 추가하지 않고 메서드를 나눴나?]
+     *   update()의 매개변수를 바꾸면 그 메서드를 부르는 RestaurantService도 같이 고쳐야 합니다.
+     *   등록 폼에 대표메뉴 · 영업시간 · 좌표 입력을 붙일 때 RestaurantService.update()에서
+     *   update() 다음에 이 메서드를 같이 호출하면 됩니다.
+     *
+     * @param representativeMenu 수정할 대표 메뉴 (null 가능)
+     * @param businessHours      수정할 영업시간 (null 가능)
+     * @param lat                수정할 위도 (null 가능)
+     * @param lng                수정할 경도 (null 가능)
+     */
+    public void updateDetail(String representativeMenu, String businessHours, Double lat, Double lng) {
+        this.representativeMenu = representativeMenu;
+        this.businessHours = businessHours;
+        this.lat = lat;
+        this.lng = lng;
+    }
+
+    // [추가]2026.11.11권성애 소프트 삭제: 행은 남기고 삭제 시각만 기록 (리뷰 · 댓글 외래키 유지)
+    // 호출하는 곳: RestaurantService.delete()
+    // @Transactional 안에서 값만 바꾸면 변경 감지로 UPDATE 가 실행됨 (save() 필요 없음)
+    public void softDelete() {
+        this.deletedAt = LocalDateTime.now();
+    }
+
+    // [추가]2026.11.11권성애 삭제된 맛집인지 (화면 · 서비스에서 확인용)
+    public boolean isDeleted() {
+        return deletedAt != null;
     }
 
     // ── [팀 프로젝트] AI 요약 저장 ───────────────────────────
