@@ -50,38 +50,62 @@ AI 추천: 아래 추천 폼 → fetch POST /api/ai/recommend → AiApiControlle
         </div>
     </div>
 
-    <!-- 카테고리 바로가기 -->
-    <div class="row g-3 mb-5">
-        <!--/* @{/restaurants(category=KOREAN)} : 괄호 안은 쿼리 파라미터 → /restaurants?category=KOREAN
-               RestaurantViewController.list() 의 @RequestParam Category category 로 들어간다. */-->
-        <div class="col-4 col-md-2">
+    <!-- 카테고리 바로가기 (3 x 3) -->
+    <div class="row row-cols-3 g-3 mb-5 mx-auto" style="max-width:640px;">
+        <!--/* @{/restaurants(category='KOREAN')} : 괄호 안은 쿼리 파라미터 → /restaurants?category=KOREAN
+               이미지: static/images/category/{카테고리 이름 소문자}.svg */-->
+        <div class="col">
             <a th:href="@{/restaurants(category='KOREAN')}" class="text-decoration-none">
-                <div class="card text-center p-3 h-100"><div class="fs-1">🍚</div><div class="fw-bold text-dark">한식</div></div>
+                <div class="card p-0 overflow-hidden h-100">
+                    <img th:src="@{/images/category/korean.svg}" alt="한식" class="w-100 d-block" style="aspect-ratio:1/1;object-fit:cover;">                </div>
             </a>
         </div>
-        <div class="col-4 col-md-2">
+        <div class="col">
             <a th:href="@{/restaurants(category='CHINESE')}" class="text-decoration-none">
-                <div class="card text-center p-3 h-100"><div cla    ss="fs-1">🥟</div><div class="fw-bold text-dark">중식</div></div>
+                <div class="card p-0 overflow-hidden h-100">
+                    <img th:src="@{/images/category/chinese.svg}" alt="중식" class="w-100 d-block" style="aspect-ratio:1/1;object-fit:cover;">                </div>
             </a>
         </div>
-        <div class="col-4 col-md-2">
+        <div class="col">
             <a th:href="@{/restaurants(category='JAPANESE')}" class="text-decoration-none">
-                <div class="card text-center p-3 h-100"><div class="fs-1">🍣</div><div class="fw-bold text-dark">일식</div></div>
+                <div class="card p-0 overflow-hidden h-100">
+                    <img th:src="@{/images/category/japanese.svg}" alt="일식" class="w-100 d-block" style="aspect-ratio:1/1;object-fit:cover;">                </div>
             </a>
         </div>
-        <div class="col-4 col-md-2">
+        <div class="col">
             <a th:href="@{/restaurants(category='WESTERN')}" class="text-decoration-none">
-                <div class="card text-center p-3 h-100"><div class="fs-1">🍝</div><div class="fw-bold text-dark">양식</div></div>
+                <div class="card p-0 overflow-hidden h-100">
+                    <img th:src="@{/images/category/western.svg}" alt="양식" class="w-100 d-block" style="aspect-ratio:1/1;object-fit:cover;">                </div>
             </a>
         </div>
-        <div class="col-4 col-md-2">
+        <div class="col">
             <a th:href="@{/restaurants(category='CAFE')}" class="text-decoration-none">
-                <div class="card text-center p-3 h-100"><div class="fs-1">☕</div><div class="fw-bold text-dark">카페</div></div>
+                <div class="card p-0 overflow-hidden h-100">
+                    <img th:src="@{/images/category/cafe.svg}" alt="카페" class="w-100 d-block" style="aspect-ratio:1/1;object-fit:cover;">                </div>
             </a>
         </div>
-        <div class="col-4 col-md-2">
+        <div class="col">
+            <a th:href="@{/restaurants(category='SEAFOOD')}" class="text-decoration-none">
+                <div class="card p-0 overflow-hidden h-100">
+                    <img th:src="@{/images/category/seafood.svg}" alt="해산물·회" class="w-100 d-block" style="aspect-ratio:1/1;object-fit:cover;">                </div>
+            </a>
+        </div>
+        <div class="col">
+            <a th:href="@{/restaurants(category='MEAT')}" class="text-decoration-none">
+                <div class="card p-0 overflow-hidden h-100">
+                    <img th:src="@{/images/category/meat.svg}" alt="고기·구이" class="w-100 d-block" style="aspect-ratio:1/1;object-fit:cover;">                </div>
+            </a>
+        </div>
+        <div class="col">
+            <a th:href="@{/restaurants(category='SOUP')}" class="text-decoration-none">
+                <div class="card p-0 overflow-hidden h-100">
+                    <img th:src="@{/images/category/soup.svg}" alt="국밥·탕" class="w-100 d-block" style="aspect-ratio:1/1;object-fit:cover;">                </div>
+            </a>
+        </div>
+        <div class="col">
             <a th:href="@{/restaurants(category='ETC')}" class="text-decoration-none">
-                <div class="card text-center p-3 h-100"><div class="fs-1">🍽️</div><div class="fw-bold text-dark">기타</div></div>
+                <div class="card p-0 overflow-hidden h-100">
+                    <img th:src="@{/images/category/etc.svg}" alt="기타" class="w-100 d-block" style="aspect-ratio:1/1;object-fit:cover;">                </div>
             </a>
         </div>
     </div>

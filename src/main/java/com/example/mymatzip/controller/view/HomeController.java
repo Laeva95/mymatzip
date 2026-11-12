@@ -36,7 +36,7 @@ package com.example.mymatzip.controller.view;
 
 // RestaurantService: 맛집 관련 비즈니스 로직을 처리하는 서비스 클래스
 // 메인 페이지에서 최신 맛집 6개를 가져오기 위해 사용
-//import com.example.mymatzip.service.RestaurantService;
+import com.example.mymatzip.service.RestaurantService;
 
 // @RequiredArgsConstructor: final 필드의 생성자를 자동 생성하는 Lombok 어노테이션
 import lombok.RequiredArgsConstructor;
@@ -69,7 +69,7 @@ public class HomeController {
     // ── 필드 (멤버 변수) ────────────────────────────────────
     // RestaurantService: 맛집 관련 비즈니스 로직 담당 서비스
     // 메인 페이지에서 최신 등록된 맛집 6개를 가져오기 위해 사용합니다.
-    //private final RestaurantService restaurantService;
+    private final RestaurantService restaurantService;
 
     // ── GET / ───────────────────────────────────────────────
     // 메인(홈) 페이지: 최신 맛집 6개를 포함한 홈 화면을 보여줌
@@ -92,7 +92,7 @@ public class HomeController {
         // model.addAttribute("restaurants", ...):
         //   "restaurants"라는 이름으로 맛집 목록을 Model에 담음
         //   타임리프 화면에서 ${restaurants}로 접근 가능
-        //model.addAttribute("restaurants", restaurantService.findLatest6());
+        model.addAttribute("restaurants", restaurantService.findLatest6());
 
         // ── 2단계: 타임리프 화면 이름 반환 ─────────────────────────
         // "home"을 반환하면:
