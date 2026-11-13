@@ -2,7 +2,7 @@
 <!--/*
 [admin/members.html] 회원 관리 (관리자)
 컨트롤러: AdminViewController.members() (GET /admin/members)
-API: GET /api/admin/members?page=0&size=20, PUT /api/admin/members/{id}/role, DELETE /api/admin/members/{id}
+API: GET /api/admin/members?page=0&size=10, PUT /api/admin/members/{id}/role, DELETE /api/admin/members/{id}
 */-->
 <html lang="ko" xmlns:th="http://www.thymeleaf.org">
 <head th:replace="~{fragments/layout :: head('회원 관리')}"></head>
@@ -28,7 +28,7 @@ API: GET /api/admin/members?page=0&size=20, PUT /api/admin/members/{id}/role, DE
     document.addEventListener('DOMContentLoaded', function () { loadMembers(0); });
 
     function loadMembers(page) {
-        fetchJson('/api/admin/members?page=' + page + '&size=20').then(function (r) {
+        fetchJson('/api/admin/members?page=' + page + '&size=10').then(function (r) {
             const tbody = document.getElementById('memberTableBody');
             const content = (r.body && r.body.content) || [];
             if (content.length === 0) {

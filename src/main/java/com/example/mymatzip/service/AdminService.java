@@ -122,6 +122,17 @@ public class AdminService {
         return reviewRepository.findByReportedTrue();
     }
 
+    // 관리자 전체 리뷰 페이징 조회
+    // 관리자 전체 리뷰 페이징 조회
+    public Page<Review> findAllReviews(Pageable pageable) {
+        return reviewRepository.findAll(pageable);
+    }
+
+    // 관리자 신고 리뷰 페이징 조회
+    public Page<Review> findReportedReviews(Pageable pageable) {
+        return reviewRepository .findByReportedTrue(pageable);
+    }
+
     // ── 회원 역할 변경 ──────────────────────────────────────────
     // 동작: 특정 회원의 역할(Role)을 변경합니다 (USER ↔ ADMIN)
     // 매개변수: memberId — 변경할 회원의 ID, role — 새로운 역할
