@@ -57,28 +57,60 @@ function restaurantCardHtml(r, extraHtml) {
         '</div></div></div>';
 }
 
-/* 페이지 번호 버튼(«, 1, 2, 3, ») 을 만들고, 누르면 loadFunction(페이지번호) 를 호출한다.
-   mypage, admin/members, admin/restaurants 에서 사용 */
+/* 페이지 번호 버튼(«, 1, 2, 3, ..., »)을 만든다.
+   전체 페이지 번호를 나열하지 않고 현재 페이지 주변 최대 5개만 표시한다.
+   첫 페이지와 마지막 페이지는 필요한 경우 별도로 표시한다.
+   버튼 클릭 시 loadFunction(페이지번호)을 호출한다.
+   사용 화면: mypage, admin/members, admin/restaurants */
+
 function renderPagination(navId, totalPages, currentPage, loadFunction) {
     const ul = document.getElementById(navId).querySelector('ul');
-    if (totalPages <= 1) { ul.innerHTML = ''; return; }
-    let html = '<li class="page-item ' + (currentPage === 0 ? 'disabled' : '') + '">' +
-        '<a class="page-link" href="#" data-page="' + (currentPage - 1) + '">&laquo;</a></li>';
-    for (let i = 0; i < totalPages; i++) {
+
+    if (totalPages <= 1) {
+        ul.innerHTML = '';
+        return;
+    }
+
+    // 한 구간에 표시할 페이지 번호 개수
+    const pageGroupSize = 10;
+
+    // 현재 페이지가 속한 구간의 시작과 끝
+    const startPage = Math.floor(currentPage / pageGroupSize) * pageGroupSize;
+    const endPage = Math.min(startPage + pageGroupSize, totalPages);
+
+    let html = '';
+
+    // 이전 구간 버튼
+    const prevGroupPage = startPage - 1;
+    html += '<li class="page-item ' + (startPage === 0 ? 'disabled' : '') + '">' +
+        '<a class="page-link" href="#" data-page="' + prevGroupPage + '">&laquo;</a></li>';
+
+    // 페이지 번호 10개씩 표시
+    for (let i = startPage; i < endPage; i++) {
         html += '<li class="page-item ' + (i === currentPage ? 'active' : '') + '">' +
             '<a class="page-link" href="#" data-page="' + i + '">' + (i + 1) + '</a></li>';
     }
-    html += '<li class="page-item ' + (currentPage === totalPages - 1 ? 'disabled' : '') + '">' +
-        '<a class="page-link" href="#" data-page="' + (currentPage + 1) + '">&raquo;</a></li>';
+
+    // 다음 구간 버튼
+    const nextGroupPage = endPage;
+    html += '<li class="page-item ' + (endPage >= totalPages ? 'disabled' : '') + '">' +
+        '<a class="page-link" href="#" data-page="' + nextGroupPage + '">&raquo;</a></li>';
+
     ul.innerHTML = html;
+
     ul.querySelectorAll('a.page-link').forEach(function (link) {
         link.addEventListener('click', function (e) {
             e.preventDefault();
+
             const page = parseInt(this.getAttribute('data-page'));
-            if (page >= 0 && page < totalPages) loadFunction(page);
+
+            if (page >= 0 && page < totalPages) {
+                loadFunction(page);
+            }
         });
     });
 }
+
 
 /* fetch 결과를 { ok, status, body } 로 묶어 돌려준다. 응답이 JSON 이 아니어도 오류 없이 처리 */
 function fetchJson(url, options) {

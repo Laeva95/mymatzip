@@ -144,11 +144,12 @@ public class AdminService {
     // @Transactional: DB에서 데이터를 "삭제"하므로 쓰기 가능 트랜잭션 필요
     @Transactional
     public void deleteRestaurant(Long id) {
-        // 맛집 존재 확인 — 없으면 예외 발생
-        if (!restaurantRepository.existsById(id)) {
-            throw new IllegalArgumentException("맛집을 찾을 수 없습니다.");
-        }
-        restaurantRepository.deleteById(id);
+        // 삭제되지 않은 맛집만 조회
+        Restaurant restaurant = restaurantRepository.findByIdAndDeletedAtIsNull(id)
+                .orElseThrow(() -> new IllegalArgumentException("맛집을 찾을 수 없습니다."));
+
+        // 논리 삭제 처리
+        restaurant.softDelete();
     }
 
     // ── 리뷰 삭제 ───────────────────────────────────────────────

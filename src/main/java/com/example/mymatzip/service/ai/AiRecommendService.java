@@ -100,7 +100,9 @@ public class AiRecommendService {
                     .call()       // OpenAiChatModel 객체가 openrouter.ai 로 HTTP 요청
                     .content();   // 응답에서 AI 가 쓴 글만 꺼냄
         } catch (Exception e) {
-            log.warn("AI 추천 실패: {}", e.getMessage());
+            log.error("AI 추천 실패 - 오류 유형: {}, 오류 메시지: {}",
+                    e.getClass().getName(), e.getMessage(), e);
+
             aiUsageLimiter.refund(memberId);
             throw new AiUnavailableException("AI 추천을 잠시 사용할 수 없습니다. 잠시 후 다시 시도해 주세요.");
         }
