@@ -8,6 +8,7 @@ import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -65,6 +66,11 @@ public class AiRecommendService {
 
         // 2) 후보 목록: RestaurantService.findAll() 이 RestaurantResponse(평균 별점 포함) 목록을 돌려준다
         List<RestaurantResponse> candidates = restaurantService.findAll().stream()
+                .sorted(
+                        Comparator.comparing(RestaurantResponse::getAverageRating, Comparator.reverseOrder())
+                                .thenComparing(RestaurantResponse::getCreatedAt, Comparator.nullsLast(Comparator.reverseOrder()))
+                                .thenComparing(RestaurantResponse::getId)
+                )
                 .limit(MAX_CANDIDATES)
                 .toList();
         if (candidates.isEmpty()) {
@@ -116,6 +122,11 @@ public class AiRecommendService {
             item.put("restaurant", byId.get(pick.id()));
             item.put("reason", pick.reason());
             picks.add(item);
+        }
+
+        // AI 응답에서 유효한 추천 결과가 0건이면 사용 횟수 복구
+        if (picks.isEmpty()) {
+            aiUsageLimiter.refund(memberId);
         }
 
         Map<String, Object> result = new LinkedHashMap<>();

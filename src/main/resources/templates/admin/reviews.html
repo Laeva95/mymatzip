@@ -36,7 +36,7 @@ API: GET /api/admin/reviews, GET /api/admin/reviews/reported, DELETE /api/admin/
     document.addEventListener('DOMContentLoaded', function () { loadReviews(false); });
 
     let currentPage = 0;
-    const pageSize = 2;
+    const pageSize = 10;
 
     function loadReviews(reportedOnly, page) {
         if (reportedOnly !== undefined) {

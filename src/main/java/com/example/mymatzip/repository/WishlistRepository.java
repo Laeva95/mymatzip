@@ -84,9 +84,9 @@ public interface WishlistRepository extends JpaRepository<Wishlist, Long> {
     // [호출 예시 — WishlistService에서]
     //   List<Wishlist> myWishlist = wishlistRepository.findByMemberId(loginMemberId);
     // ──────────────────────────────────────────────────────
-    // @EntityGraph: 찜 목록 조회 시 회원(member)과 맛집(restaurant) 정보를 JOIN으로 한꺼번에 가져옵니다.
+    // 삭제되지 않은 맛집만 조회하고, 찜한 날짜 최신순으로 정렬
     @EntityGraph(attributePaths = {"member", "restaurant"})
-    List<Wishlist> findByMemberId(Long memberId);
+    List<Wishlist> findByMemberIdAndRestaurant_DeletedAtIsNullOrderByCreatedAtDescIdDesc(Long memberId);
 
     // ──────────────────────────────────────────────────────
     // [Phase 5] 특정 회원의 찜 목록 페이징 조회 메서드 (마이페이지용)
