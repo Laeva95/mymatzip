@@ -1,4 +1,4 @@
-package com.example.mymatzip;
+package com.example.mymatzip.review;
 
 import com.example.mymatzip.config.security.CustomUserDetails;
 import com.example.mymatzip.entity.Category;

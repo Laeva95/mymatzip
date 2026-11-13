@@ -566,3 +566,9 @@ footer.bg-dark .text-secondary { color: rgba(255, 255, 255, .55) !important; }
         transition-duration: .01ms !important;
     }
 }
+@media (min-width: 992px) {
+    .row-cols-lg-9 > * {
+        flex: 0 0 auto;
+        width: 11.1111%;   /* 100% / 9 */
+    }
+}
