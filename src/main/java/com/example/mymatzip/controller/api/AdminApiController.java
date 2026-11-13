@@ -199,19 +199,42 @@ public class AdminApiController {
     // URL: GET /api/admin/reviews/reported
     // ★ 학습용: 실제로는 신고 기능과 연동하지만, 여기서는 전체 리뷰를 보여줍니다.
     @GetMapping("/reviews/reported")
-    public ResponseEntity<List<Map<String, Object>>> reportedReviews(
-            @LoginMember Member loginMember) {
-        // [수정] 이름대로 신고된(reported = true) 리뷰만 돌려줍니다. (예전에는 전체 리뷰를 돌려줌)
-        return ResponseEntity.ok(toReviewMaps(adminService.findReportedReviews()));
+    public ResponseEntity<Map<String, Object>> reportedReviews(
+            @LoginMember Member loginMember,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+
+        Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
+        Page<Review> reviewPage = adminService.findReportedReviews(pageable);
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("content", toReviewMaps(reviewPage.getContent()));
+        response.put("totalPages", reviewPage.getTotalPages());
+        response.put("totalElements", reviewPage.getTotalElements());
+        response.put("currentPage", reviewPage.getNumber());
+
+        return ResponseEntity.ok(response);
     }
 
     // ── [추가] 전체 리뷰 목록 ────────────────────────────────────
     // URL: GET /api/admin/reviews
     // 동작: 모든 리뷰를 신고 여부(reported)와 함께 반환합니다. (리뷰 관리 화면의 "전체" 버튼)
     @GetMapping("/reviews")
-    public ResponseEntity<List<Map<String, Object>>> allReviews(
-            @LoginMember Member loginMember) {
-        return ResponseEntity.ok(toReviewMaps(adminService.findAllReviews()));
+    public ResponseEntity<Map<String, Object>> allReviews(
+            @LoginMember Member loginMember,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+
+        Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
+        Page<Review> reviewPage = adminService.findAllReviews(pageable);
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("content", toReviewMaps(reviewPage.getContent()));
+        response.put("totalPages", reviewPage.getTotalPages());
+        response.put("totalElements", reviewPage.getTotalElements());
+        response.put("currentPage", reviewPage.getNumber());
+
+        return ResponseEntity.ok(response);
     }
 
     // 리뷰 엔티티 목록 → 화면용 Map 목록 (두 API 가 같은 형식을 쓰도록 한곳에 둠)

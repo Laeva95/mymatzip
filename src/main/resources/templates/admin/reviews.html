@@ -23,6 +23,10 @@ API: GET /api/admin/reviews, GET /api/admin/reviews/reported, DELETE /api/admin/
                 <thead class="table-light"><tr><th>ID</th><th>내용</th><th>별점</th><th>작성자</th><th>맛집</th><th>작성일</th><th>관리</th></tr></thead>
                 <tbody id="reviewTableBody"><tr><td colspan="7" class="text-center">로딩 중...</td></tr></tbody>
             </table>
+
+            <nav id="reviewsPagination" class="mt-3">
+                <ul class="pagination justify-content-center"></ul>
+            </nav>
         </div>
     </div></div>
 </main>
@@ -31,19 +35,44 @@ API: GET /api/admin/reviews, GET /api/admin/reviews/reported, DELETE /api/admin/
     let onlyReported = false;
     document.addEventListener('DOMContentLoaded', function () { loadReviews(false); });
 
-    function loadReviews(reportedOnly) {
-        if (reportedOnly !== undefined) onlyReported = reportedOnly;
-        document.getElementById('btnAll').className = 'btn btn-sm ' + (onlyReported ? 'btn-outline-primary' : 'btn-primary');
-        document.getElementById('btnReported').className = 'btn btn-sm ' + (onlyReported ? 'btn-danger' : 'btn-outline-danger');
-        fetchJson(onlyReported ? '/api/admin/reviews/reported' : '/api/admin/reviews').then(function (r) {
+    let currentPage = 0;
+    const pageSize = 2;
+
+    function loadReviews(reportedOnly, page) {
+        if (reportedOnly !== undefined) {
+            onlyReported = reportedOnly;
+            currentPage = 0;
+        } else if (page !== undefined) {
+            currentPage = page;
+        }
+
+        document.getElementById('btnAll').className =
+            'btn btn-sm ' + (onlyReported ? 'btn-outline-primary' : 'btn-primary');
+
+        document.getElementById('btnReported').className =
+            'btn btn-sm ' + (onlyReported ? 'btn-danger' : 'btn-outline-danger');
+
+        const url = (onlyReported
+                ? '/api/admin/reviews/reported'
+                : '/api/admin/reviews')
+            + '?page=' + currentPage + '&size=' + pageSize;
+
+        fetchJson(url).then(function (r) {
             const tbody = document.getElementById('reviewTableBody');
-            const list = Array.isArray(r.body) ? r.body : [];
+            const data = r.body || {};
+            const list = Array.isArray(data.content) ? data.content : [];
+
             if (list.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">리뷰가 없습니다.</td></tr>';
+                document.getElementById('reviewsPagination').innerHTML = '';
                 return;
             }
+
             tbody.innerHTML = list.map(function (x) {
-                const content = x.content && x.content.length > 50 ? x.content.substring(0, 50) + '...' : x.content;
+                const content = x.content && x.content.length > 50
+                    ? x.content.substring(0, 50) + '...'
+                    : x.content;
+
                 return '<tr><td>' + Number(x.id) + '</td>' +
                     '<td>' + (x.reported ? '<span class="badge bg-danger me-1">신고</span>' : '') + esc(content) + '</td>' +
                     '<td class="rating-stars">' + renderStars(x.rating) + '</td>' +
@@ -51,6 +80,15 @@ API: GET /api/admin/reviews, GET /api/admin/reviews/reported, DELETE /api/admin/
                     '<td>' + esc(formatDateTime(x.createdAt)) + '</td>' +
                     '<td><button class="btn btn-outline-danger btn-sm" onclick="deleteReview(' + Number(x.id) + ')"><i class="bi bi-trash"></i></button></td></tr>';
             }).join('');
+
+            renderPagination(
+                'reviewsPagination',
+                data.totalPages,
+                data.currentPage,
+                function (page) {
+                    loadReviews(undefined, page);
+                }
+            );
         });
     }
 
