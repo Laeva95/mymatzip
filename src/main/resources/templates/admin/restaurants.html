@@ -2,7 +2,7 @@
 <!--/*
 [admin/restaurants.html] 맛집 관리 (관리자)
 컨트롤러: AdminViewController.restaurants() (GET /admin/restaurants)
-API: GET /api/admin/restaurants?page=0&size=20, DELETE /api/admin/restaurants/{id}
+API: GET /api/admin/restaurants?page=0&size=10, DELETE /api/admin/restaurants/{id}
 */-->
 <html lang="ko" xmlns:th="http://www.thymeleaf.org">
 <head th:replace="~{fragments/layout :: head('맛집 관리')}"></head>
@@ -28,7 +28,7 @@ API: GET /api/admin/restaurants?page=0&size=20, DELETE /api/admin/restaurants/{i
     document.addEventListener('DOMContentLoaded', function () { loadRestaurants(0); });
 
     function loadRestaurants(page) {
-        fetchJson('/api/admin/restaurants?page=' + page + '&size=20').then(function (r) {
+        fetchJson('/api/admin/restaurants?page=' + page + '&size=10').then(function (r) {
             const tbody = document.getElementById('restaurantTableBody');
             const content = (r.body && r.body.content) || [];
             if (content.length === 0) {

@@ -71,13 +71,13 @@ public class AdminApiController {
     }
 
     // ── 전체 회원 목록 조회 (페이징) ────────────────────────────
-    // URL: GET /api/admin/members?page=0&size=20
+    // URL: GET /api/admin/members?page=0&size=10
     // 동작: 모든 회원 목록을 페이지별로 조회합니다.
     @GetMapping("/members")
     public ResponseEntity<Map<String, Object>> members(
             @LoginMember Member loginMember,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
+            @RequestParam(defaultValue = "10") int size) {
 
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
         Page<Member> memberPage = adminService.findAllMembers(pageable);
@@ -146,12 +146,12 @@ public class AdminApiController {
     }
 
     // ── 전체 맛집 목록 조회 (페이징) ────────────────────────────
-    // URL: GET /api/admin/restaurants?page=0&size=20
+    // URL: GET /api/admin/restaurants?page=0&size=10
     @GetMapping("/restaurants")
     public ResponseEntity<Map<String, Object>> restaurants(
             @LoginMember Member loginMember,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
+            @RequestParam(defaultValue = "10") int size) {
 
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
         Page<Restaurant> restaurantPage = adminService.findAllRestaurants(pageable);
