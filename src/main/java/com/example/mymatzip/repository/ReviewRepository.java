@@ -126,6 +126,34 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
     Double averageRatingByRestaurantId(@Param("restaurantId") Long restaurantId);        // @Param으로 JPQL의 :restaurantId에 실제 값을 바인딩
 
     // ──────────────────────────────────────────────────────
+    // 여러 맛집의 평균 별점 일괄 조회 메서드
+    // ──────────────────────────────────────────────────────
+    // [사용 화면] 맛집 목록 페이지 → 각 맛집의 평균 별점 표시
+    //
+    // [매개변수]
+    //   - List<Long> ids : 평균 별점을 조회할 맛집 ID 목록
+    //
+    // [반환값]
+    //   - List<RestaurantRating> : 맛집 ID와 평균 별점 목록
+    //
+    // [JPQL 해석]
+    //   SELECT r.restaurant.id → 맛집 ID 조회
+    //   AVG(r.rating)          → 해당 맛집의 평균 별점 계산
+    //   WHERE ... IN :ids      → 전달받은 맛집 ID만 조회
+    //   GROUP BY               → 맛집별로 그룹화
+    // ──────────────────────────────────────────────────────
+    @Query("SELECT r.restaurant.id AS restaurantId, AVG(r.rating) AS averageRating " +
+            "FROM Review r " +
+            "WHERE r.restaurant.id IN :ids " +
+            "GROUP BY r.restaurant.id")
+    List<RestaurantRating> averageRatingsByRestaurantIds(@Param("ids") List<Long> ids);
+
+    // 조회 결과를 담는 Projection 인터페이스
+    interface RestaurantRating {
+        Long getRestaurantId();
+        Double getAverageRating();
+    }
+    // ──────────────────────────────────────────────────────
     // 특정 회원이 작성한 리뷰 목록 조회 메서드
     // ──────────────────────────────────────────────────────
     // [사용 화면] 마이페이지 → "내가 쓴 리뷰" 목록
@@ -162,6 +190,7 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
     @EntityGraph(attributePaths = {"member"})
     Page<Review> findByRestaurantId(Long restaurantId, Pageable pageable);
 
+
     // ──────────────────────────────────────────────────────
     // [Phase 5] 특정 회원의 리뷰 페이징 조회 메서드 (마이페이지용)
     // ──────────────────────────────────────────────────────
@@ -189,6 +218,18 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
     //   - List<Review> : 신고된(reported=true) 리뷰 목록
     // ──────────────────────────────────────────────────────
     List<Review> findByReportedTrue();
+    // ──────────────────────────────────────────────────────
+    // [Phase 10] 신고된 리뷰 페이징 조회 메서드 (관리자용)
+    // ──────────────────────────────────────────────────────
+    // [사용 화면] 관리자 페이지 → "신고된 리뷰" 목록 (페이지별)
+    //
+    // [매개변수]
+    //   - Pageable pageable : 페이지 번호와 페이지 크기 정보
+    //
+    // [반환값]
+    //   - Page<Review> : 페이지 정보가 포함된 신고된 리뷰 목록
+    // ──────────────────────────────────────────────────────
+    Page<Review> findByReportedTrue(Pageable pageable);
 
     // ──────────────────────────────────────────────────────
     // [Phase 9] 특정 회원이 작성한 리뷰 수 조회 (마이페이지 통계용)
