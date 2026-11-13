@@ -28,7 +28,7 @@ import org.springframework.web.context.WebApplicationContext;
 import java.time.LocalDateTime;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.hamcrest.Matchers.hasSize;
+import com.example.mymatzip.entity.Source;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
@@ -88,6 +88,14 @@ public class IssueVerificationTest {
         ReflectionTestUtils.setField(restaurant, "name", "테스트식당");
         ReflectionTestUtils.setField(restaurant, "address", "부산시 부산진구");
         ReflectionTestUtils.setField(restaurant, "category", Category.KOREAN);
+        restaurant = createEntity(Restaurant.class);
+        ReflectionTestUtils.setField(restaurant, "member", authorMember);
+        ReflectionTestUtils.setField(restaurant, "name", "테스트식당");
+        ReflectionTestUtils.setField(restaurant, "address", "부산시 부산진구");
+        ReflectionTestUtils.setField(restaurant, "category", Category.KOREAN);
+        ReflectionTestUtils.setField(restaurant, "source", Source.MANUAL);   // ← 이 줄 추가
+        ReflectionTestUtils.setField(restaurant, "createdAt", now);
+        restaurant = restaurantRepository.save(restaurant);
         ReflectionTestUtils.setField(restaurant, "createdAt", now);
         restaurant = restaurantRepository.save(restaurant);
 
