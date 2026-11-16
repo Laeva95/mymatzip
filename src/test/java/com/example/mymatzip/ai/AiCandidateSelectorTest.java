@@ -69,6 +69,31 @@ class AiCandidateSelectorTest {
     }
 
     @Test
+    void 한_글자_회도_해산물_조건으로_인식하지만_회식은_아니다() {
+        List<RestaurantResponse> data = List.of(
+                r(11, Category.SEAFOOD, "부산광역시 수영구 광안해변로 11", "자연산 횟감", "모듬회", 300),
+                r(12, Category.SOUP, "부산광역시 수영구 민락로 12", "머릿고기 국밥", "국밥", 0),
+                r(13, Category.MEAT, "부산광역시 수영구 민락로 13", "숯불 삼겹살", "삼겹살", 1));
+        assertThat(AiCandidateSelector.select("회 먹고 싶어", data, 50))
+                .extracting(RestaurantResponse::getId).containsExactly(11L);
+        assertThat(AiCandidateSelector.select("광안리 회를 먹을래", data, 50))
+                .extracting(RestaurantResponse::getId).containsExactly(11L);
+        assertThat(AiCandidateSelector.select("물회 맛집", data, 50))
+                .extracting(RestaurantResponse::getId).containsExactly(11L);
+        // "회식" 은 해산물 조건이 아님 → 걸러지지 않음
+        assertThat(AiCandidateSelector.select("회식 장소", data, 50)).hasSize(3);
+    }
+
+    @Test
+    void 음식_종류_조건에서는_카테고리가_맞는_맛집이_설명만_맞는_맛집보다_먼저() {
+        List<RestaurantResponse> data = List.of(
+                r(21, Category.SOUP, "부산광역시 동래구 온천장로 21", "좋은 고기로 끓인 곰탕", "곰탕", 0),   // 설명에만 "고기"
+                r(22, Category.MEAT, "부산광역시 동래구 중앙대로 22", "숙성 갈비", "갈비", 100));
+        assertThat(AiCandidateSelector.select("회식하기 좋은 고기집", data, 50))
+                .extracting(RestaurantResponse::getId).containsExactly(22L, 21L);
+    }
+
+    @Test
     void 주소에서_구와_지역을_뽑는다() {
         assertThat(AiCandidateSelector.districtOf("부산광역시 해운대구 해운대해변로 163")).isEqualTo("해운대구");
         assertThat(AiCandidateSelector.districtOf("부산광역시 기장군 기장읍 1")).isEqualTo("기장군");

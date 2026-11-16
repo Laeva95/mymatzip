@@ -28,7 +28,8 @@ public final class AiCandidateSelector {
     /** 음식 종류 조건: 질문에 trigger 단어가 있으면, categories 에 속하거나 이름·설명·메뉴에 keywords 가 있는 맛집만 */
     private record FoodRule(List<String> triggers, Set<Category> categories, List<String> keywords) {}
 
-    // 한 글자 단어(회, 탕 등)는 "회식", "탕수육" 처럼 잘못 걸리므로 넣지 않는다
+    // 한 글자 단어(회, 탕 등)는 "회식", "탕수육" 처럼 잘못 걸리므로 triggers 에 넣지 않는다
+    //   → 대신 질문을 단어로 나눈 뒤 조사를 뗀 단어가 정확히 "회" 일 때만 해산물 조건으로 본다 (SINGLE_WORD_FOODS)
     private static final List<FoodRule> FOOD_RULES = List.of(
             new FoodRule(List.of("한식", "한정식", "백반", "비빔밥", "찌개"),
                     EnumSet.of(Category.KOREAN), List.of("한식", "한정식", "백반", "비빔밥", "찌개")),
@@ -40,13 +41,16 @@ public final class AiCandidateSelector {
                     EnumSet.of(Category.WESTERN), List.of("양식", "파스타", "피자", "스테이크", "버거", "리조또")),
             new FoodRule(List.of("카페", "커피", "디저트", "베이커리", "빵집", "케이크"),
                     EnumSet.of(Category.CAFE), List.of("카페", "커피", "디저트", "베이커리", "케이크")),
-            new FoodRule(List.of("해산물", "해물", "횟집", "생선회", "조개", "장어", "복국", "꼼장어", "회센터"),
-                    EnumSet.of(Category.SEAFOOD), List.of("해산물", "해물", "횟집", "생선회", "조개", "장어", "복국", "꼼장어")),
+            new FoodRule(List.of("해산물", "해물", "횟집", "생선회", "물회", "조개", "장어", "복국", "꼼장어", "회센터"),
+                    EnumSet.of(Category.SEAFOOD), List.of("해산물", "해물", "횟집", "생선회", "물회", "조개", "장어", "복국", "꼼장어")),
             new FoodRule(List.of("고기", "구이", "삼겹살", "갈비", "곱창", "소고기", "한우", "돼지고기", "숯불"),
                     EnumSet.of(Category.MEAT), List.of("고기", "구이", "삼겹살", "갈비", "곱창", "한우", "숯불")),
             new FoodRule(List.of("국밥", "국물", "해장국", "곰탕", "설렁탕", "갈비탕", "감자탕", "수육"),
                     EnumSet.of(Category.SOUP), List.of("국밥", "국물", "해장국", "곰탕", "설렁탕", "갈비탕", "감자탕", "탕면"))
     );
+
+    // 한 글자 음식 단어 → 해당 카테고리 (질문 단어가 조사를 뗀 뒤 정확히 이 글자일 때만. 예: "회 먹고 싶어", "회를" O / "회식" X)
+    private static final Map<String, Category> SINGLE_WORD_FOODS = Map.of("회", Category.SEAFOOD);
 
     // 주소에 구 이름이 그대로 없는 유명 동네 이름 → 구·군
     private static final Map<String, String> AREA_ALIASES = Map.ofEntries(
@@ -76,13 +80,22 @@ public final class AiCandidateSelector {
     public static List<RestaurantResponse> select(String question, List<RestaurantResponse> all, int max) {
         String q = question == null ? "" : question;
 
+        Set<Category> singleWordCategories = EnumSet.noneOf(Category.class);
+        for (String token : NON_WORD.split(q)) {
+            Category c = SINGLE_WORD_FOODS.get(PARTICLE.matcher(token).replaceAll(""));
+            if (c != null) singleWordCategories.add(c);
+        }
         List<FoodRule> foods = FOOD_RULES.stream()
-                .filter(rule -> rule.triggers().stream().anyMatch(q::contains))
+                .filter(rule -> rule.triggers().stream().anyMatch(q::contains)
+                        || rule.categories().stream().anyMatch(singleWordCategories::contains))
                 .toList();
         Set<String> districts = detectDistricts(q, all);
         List<String> words = questionWords(q);
 
-        Comparator<Scored> order = Comparator.comparingInt(Scored::score).reversed()
+        // 음식 종류 조건이 있으면 카테고리가 맞는 맛집을 먼저 (설명에만 단어가 있는 맛집은 뒤로.
+        //   예: "고기집" 에 설명에 "머릿고기" 가 나오는 국밥집보다 고기·구이 맛집이 먼저)
+        Comparator<Scored> order = Comparator.comparing(Scored::categoryMatch).reversed()
+                .thenComparing(Comparator.comparingInt(Scored::score).reversed())
                 .thenComparing(s -> s.r().getAverageRating(), Comparator.nullsLast(Comparator.reverseOrder()))
                 .thenComparing(s -> s.r().getCreatedAt(), Comparator.nullsLast(Comparator.reverseOrder()))
                 .thenComparing(s -> s.r().getId(), Comparator.nullsLast(Comparator.naturalOrder()));
@@ -90,7 +103,8 @@ public final class AiCandidateSelector {
         return all.stream()
                 .filter(r -> foods.isEmpty() || foods.stream().anyMatch(rule -> matchesFood(r, rule)))
                 .filter(r -> districts.isEmpty() || districts.contains(districtOf(r.getAddress())))
-                .map(r -> new Scored(r, score(r, words)))
+                .map(r -> new Scored(r, score(r, words),
+                        r.getCategory() != null && foods.stream().anyMatch(rule -> rule.categories().contains(r.getCategory()))))
                 .sorted(order)
                 .limit(max)
                 .map(Scored::r)
@@ -118,7 +132,7 @@ public final class AiCandidateSelector {
         return "";
     }
 
-    private record Scored(RestaurantResponse r, int score) {}
+    private record Scored(RestaurantResponse r, int score, boolean categoryMatch) {}
 
     private static boolean matchesFood(RestaurantResponse r, FoodRule rule) {
         if (r.getCategory() != null && rule.categories().contains(r.getCategory())) return true;
