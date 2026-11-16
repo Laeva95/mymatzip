@@ -168,11 +168,15 @@ public class AdminService {
     // 매개변수: id — 삭제할 리뷰의 고유번호
     @Transactional
     public void deleteReview(Long id) {
-        // 리뷰 존재 확인 — 없으면 예외 발생
-        if (!reviewRepository.existsById(id)) {
-            throw new IllegalArgumentException("리뷰를 찾을 수 없습니다.");
-        }
-        reviewRepository.deleteById(id);
+        // 리뷰 조회
+        Review review = reviewRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("리뷰를 찾을 수 없습니다."));
+
+        // 해당 맛집의 기존 AI 요약 초기화
+        review.getRestaurant().clearAiSummary();
+
+        // 리뷰 삭제
+        reviewRepository.delete(review);
     }
 
     // ── 회원 삭제 ───────────────────────────────────────────────

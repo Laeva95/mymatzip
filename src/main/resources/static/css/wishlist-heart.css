@@ -1,0 +1,28 @@
+/*
+ * [wishlist-heart.css] 맛집 카드 썸네일 하트(찜) 버튼 가운데 정렬 (D 찜 담당)
+ * 사용 화면: restaurant/list.html — 서버 렌더링 카드 · 검색 결과 카드(wishHeartButtonHtml) 모두 .wish-heart
+ * 위치 · 크기 · 흰 원형 배경은 버튼의 style 속성과 btn-light · rounded-circle 그대로 사용한다.
+ *
+ * 하트가 흰 원 가운데에서 어긋나던 원인
+ *   - style.css 의 ".btn .bi { margin-right: .15rem; }" → 아이콘이 왼쪽으로 약 1.2px 밀림
+ *   - 버튼 줄높이 + bootstrap-icons 의 ".bi::before { vertical-align: -.125em; }" → 위로 약 0.8px 밀림
+ * → 버튼 안을 flex 로 가운데 정렬하고, 아이콘의 여백 · 줄높이 · 기준선 보정을 없앤다.
+ */
+.wish-heart.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+}
+.wish-heart.btn .bi {
+    display: block;
+    margin: 0;
+    line-height: 1;
+    /* bi-heart 글리프는 글자 칸 안에서 약간 위에 그려져 있어(14px 기준 약 0.5px) 보이는 모양 기준으로 맞춤 */
+    transform: translateY(.035em);
+}
+.wish-heart.btn .bi::before {
+    display: block;
+    vertical-align: 0;
+    line-height: 1;
+}
