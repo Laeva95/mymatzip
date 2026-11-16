@@ -92,7 +92,9 @@ public class HomeController {
         // model.addAttribute("restaurants", ...):
         //   "restaurants"라는 이름으로 맛집 목록을 Model에 담음
         //   타임리프 화면에서 ${restaurants}로 접근 가능
-        model.addAttribute("restaurants", restaurantService.findLatest6());
+        //model.addAttribute("restaurants", restaurantService.findLatest6());
+        // [변경]2026.11.16권성애 N+1 방지: findLatest6() → findLatest6AvoidNPlusOne() (평점을 한 번에 조회)
+        model.addAttribute("restaurants", restaurantService.findLatest6AvoidNPlusOne());
 
         // ── 2단계: 타임리프 화면 이름 반환 ─────────────────────────
         // "home"을 반환하면:

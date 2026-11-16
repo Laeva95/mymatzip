@@ -83,6 +83,9 @@ import org.springframework.data.domain.Pageable;
 // List: 여러 개의 데이터를 순서대로 담을 수 있는 자바 컬렉션 (목록)
 // → 맛집 목록을 담아 반환할 때 사용
 import java.util.List;
+import java.util.Map;                        // [추가]2026.11.16권성애 N+1 방지: 맛집 id → 평균 별점
+import java.util.stream.Collectors;          // [추가]2026.11.16권성애 N+1 방지: Collectors.toMap
+
 
 // ─── 클래스 선언부 ────────────────────────────────────────────
 
@@ -142,6 +145,11 @@ public class RestaurantService {
                 .toList();
     }
 
+    // [추가]2026.11.16권성애 N+1 방지 버전 findAll() — 평점을 쿼리 1번으로 조회 (목록 1 + 평점 1 = 2번)
+    public List<RestaurantResponse> findAllAvoidNPlusOne() {
+        return toResponsesAvoidNPlusOne(restaurantRepository.findAllByDeletedAtIsNull());
+    }
+
     // ─── [Phase 5] 전체 맛집 목록 페이징 조회 메서드 ────────────
 
     // ┌─────────────────────────────────────────────────────────────────────┐
@@ -166,6 +174,13 @@ public class RestaurantService {
         return PageResponse.from(page, content);
     }
 
+
+    // [추가]2026.11.16권성애 N+1 방지 버전 findAll(Pageable) — 목록 1 + 개수 1 + 평점 1 = 3번
+    public PageResponse<RestaurantResponse> findAllAvoidNPlusOne(Pageable pageable) {
+        Page<Restaurant> page = restaurantRepository.findAllByDeletedAtIsNull(pageable);
+        return PageResponse.from(page, toResponsesAvoidNPlusOne(page.getContent()));
+    }
+
     // ─── 카테고리별 맛집 목록 조회 메서드 ─────────────────────
 
     // ┌─────────────────────────────────────────────────────────────────────┐
@@ -185,6 +200,11 @@ public class RestaurantService {
                 .toList();
     }
 
+    // [추가]2026.11.16권성애 N+1 방지 버전 findByCategory(Category)
+    public List<RestaurantResponse> findByCategoryAvoidNPlusOne(Category category) {
+        return toResponsesAvoidNPlusOne(restaurantRepository.findByCategoryAndDeletedAtIsNull(category));
+    }
+
     // ─── [Phase 5] 카테고리별 맛집 목록 페이징 조회 메서드 ──────
 
     // ┌─────────────────────────────────────────────────────────────────────┐
@@ -199,6 +219,12 @@ public class RestaurantService {
                 .map(this::toResponse)
                 .toList();
         return PageResponse.from(page, content);
+    }
+
+    // [추가]2026.11.16권성애 N+1 방지 버전 findByCategory(Category, Pageable)
+    public PageResponse<RestaurantResponse> findByCategoryAvoidNPlusOne(Category category, Pageable pageable) {
+        Page<Restaurant> page = restaurantRepository.findByCategoryAndDeletedAtIsNull(category, pageable);
+        return PageResponse.from(page, toResponsesAvoidNPlusOne(page.getContent()));
     }
 
     // ─── 맛집 단건 조회 메서드 (응답 DTO 반환) ────────────────
@@ -449,6 +475,11 @@ public class RestaurantService {
                 .toList();
     }
 
+    // [추가]2026.11.16권성애 N+1 방지 버전 search(String)
+    public List<RestaurantResponse> searchAvoidNPlusOne(String keyword) {
+        return toResponsesAvoidNPlusOne(restaurantRepository.searchByKeyword(keyword));
+    }
+
     // ─── [Phase 5] 키워드 검색 + 페이징 메서드 ──────────────────
 
     // ┌─────────────────────────────────────────────────────────────────────┐
@@ -464,6 +495,13 @@ public class RestaurantService {
                 .toList();
         return PageResponse.from(page, content);
     }
+
+    // [추가]2026.11.16권성애 N+1 방지 버전 search(String, Pageable) — 지금은 컨트롤러에서 부르지 않음 (테스트 비교용)
+    public PageResponse<RestaurantResponse> searchAvoidNPlusOne(String keyword, Pageable pageable) {
+        Page<Restaurant> page = restaurantRepository.searchByKeyword(keyword, pageable);
+        return PageResponse.from(page, toResponsesAvoidNPlusOne(page.getContent()));
+    }
+
 
     // ─── 최신 맛집 6개 조회 메서드 ────────────────────────────
 
@@ -485,6 +523,11 @@ public class RestaurantService {
         return restaurantRepository.findTop6ByDeletedAtIsNullOrderByCreatedAtDesc().stream()   // [추가]2026.11.11권성애 (수정: 삭제된 맛집 제외)
                 .map(this::toResponse)
                 .toList();
+    }
+
+    // [추가]2026.11.16권성애 N+1 방지 버전 findLatest6() — 맛집 6 + 평점 6 = 7번 → 2번
+    public List<RestaurantResponse> findLatest6AvoidNPlusOne() {
+        return toResponsesAvoidNPlusOne(restaurantRepository.findTop6ByDeletedAtIsNullOrderByCreatedAtDesc());
     }
 
     // ─── private 유틸리티 메서드 영역 ─────────────────────────
@@ -640,5 +683,31 @@ public class RestaurantService {
         // RestaurantResponse.from(): 정적 팩토리 메서드를 사용하여 응답 DTO 생성
         // → Restaurant 엔티티의 정보 + 평균 평점(avgRating)을 합쳐서 DTO를 만듦
         return RestaurantResponse.from(restaurant, avgRating);
+    }
+
+    // [추가]2026.11.16권성애 N+1 방지: 맛집 목록을 한꺼번에 응답 DTO로 변환
+    //   기존 toResponse() 는 맛집마다 평점 쿼리를 1번씩 → 맛집 N개면 N번 (N+1)
+    //   여기서는 맛집 id 를 모아 IN 쿼리 1번으로 평점을 다 받아 Map 에 담고 꺼내 씀
+    //   리뷰 없는 맛집은 Map 에 없음 → get() 이 null → 기존 toResponse() 와 같게 null 로 전달
+    private List<RestaurantResponse> toResponsesAvoidNPlusOne(List<Restaurant> restaurants) {
+        // 맛집이 없으면 쿼리하지 않음 (IN () 빈 목록 방지)
+        if (restaurants.isEmpty()) {
+            return List.of();
+        }
+
+        // 1단계: 맛집 id 목록 만들기
+        List<Long> ids = restaurants.stream()
+                .map(Restaurant::getId)
+                .toList();
+
+        // 2단계: 평점을 쿼리 1번으로 조회 → 맛집 id : 평균 별점 Map
+        Map<Long, Double> avgMap = reviewRepository.averageRatingsByRestaurantIdAvoidNPlusOne(ids).stream()
+                .collect(Collectors.toMap(ReviewRepository.RestaurantRating::getRestaurantId,
+                        ReviewRepository.RestaurantRating::getAverageRating));
+
+        // 3단계: 맛집마다 Map 에서 평점을 꺼내 DTO 생성 (추가 쿼리 없음)
+        return restaurants.stream()
+                .map(r -> RestaurantResponse.from(r, avgMap.get(r.getId())))
+                .toList();
     }
 }
