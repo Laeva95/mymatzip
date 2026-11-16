@@ -1,0 +1,17 @@
+# EC2 의 /etc/systemd/system/matzip.service 로 복사해서 사용
+#   sudo cp matzip.service /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable matzip
+[Unit]
+Description=my-matzip Spring Boot
+After=network.target
+
+[Service]
+User=ubuntu
+WorkingDirectory=/home/ubuntu/matzip
+EnvironmentFile=/home/ubuntu/matzip/matzip.env
+ExecStart=/usr/bin/java -Xmx512m -jar /home/ubuntu/matzip/my-matzip.jar
+SuccessExitStatus=143
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
