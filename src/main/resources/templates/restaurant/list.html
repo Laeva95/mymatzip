@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<!--/*
+============================================================
+[restaurant/list.html] 맛집 목록 화면 (B 맛집 담당)
+============================================================
+컨트롤러: RestaurantViewController.list()  (GET /restaurants?category=KOREAN)
+  restaurants      : List<RestaurantResponse> (전체 또는 카테고리별)
+  categories       : Category.values() → Category enum 배열 6개  ([변경]2026.11.12권성애 9개: 해산물·회 · 고기·구이 · 국밥·탕 추가)
+  selectedCategory : 선택한 Category (없으면 null)
+  [추가]2026.11.12권성애 페이징 (app.restaurant.page-size=12 개씩, app.restaurant.page-block=10 개 번호 묶음, 최신 등록순)
+  restaurants      : (변경) 이번 페이지의 맛집 목록만
+  currentPage      : 지금 페이지 (1부터)       totalPages : 전체 페이지 수
+  startPage · endPage : 지금 보여 줄 페이지 번호 묶음 (예: 11 ~ 20)
+  alertMsgNoPage   : 없는 페이지(?page=0 · 999 · abc)로 왔을 때 컨트롤러가 1페이지로 보내며 한 번만 넘기는 안내 문구
+검색: 폼 제출 → fetch GET /api/restaurants/search?keyword=... → RestaurantApiController → JSON 목록
+============================================================
+*/-->
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('맛집 목록')}"></head>
+<body>
+<nav th:replace="~{fragments/layout :: header}"></nav>
+<main class="container mb-5">
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="bi bi-list-ul"></i> 맛집 목록</h2>
+    <a th:if="${loginMember != null}" th:href="@{/restaurants/new}" class="btn btn-primary"><i class="bi bi-plus-circle"></i> 맛집 등록</a>
+</div>
+
+<div class="row mb-3">
+    <div class="col-md-6">
+        <form id="searchForm" class="d-flex gap-2">
+            <input type="text" id="keyword" class="form-control" placeholder="맛집 이름 또는 주소 검색...">
+            <button type="submit" class="btn btn-outline-primary"><i class="bi bi-search"></i></button>
+        </form>
+    </div>
+</div>
+
+<div class="mb-4">
+    <!--/* th:classappend : 선택된 카테고리가 없으면 '전체' 버튼을 채운 색(btn-primary)으로 */-->
+    <a th:href="@{/restaurants}" class="btn btn-sm me-1 mb-1"
+       th:classappend="${selectedCategory == null} ? 'btn-primary' : 'btn-outline-primary'">전체</a>
+    <!--/* th:each="cat : ${categories}" : Category enum 6개 반복.
+           @{/restaurants(category=${cat})} → /restaurants?category=KOREAN (enum 이름이 들어감)
+           ${cat.displayName} → Category.getDisplayName() → "한식" */-->
+    <a th:each="cat : ${categories}" th:href="@{/restaurants(category=${cat})}"
+       class="btn btn-sm me-1 mb-1"
+       th:classappend="${selectedCategory == cat} ? 'btn-primary' : 'btn-outline-primary'"
+       th:text="${cat.displayName}">한식</a>
+</div>
+
+<div class="row g-4" id="restaurantList">
+    <div class="col-md-6 col-lg-4" th:each="r : ${restaurants}">
+        <div class="card h-100">
+            <!--/* [변경]2026.11.12권성애 사진이 없으면 숨기던 것(th:if) → 카테고리 기본 이미지 (RestaurantResponse.defaultImageUrl)
+                   onerror : 사진이 깨지면 기본 이미지로 한 번만 바꿈 (data-default 로 주소를 넘김 — 상세 화면과 같은 방식) */-->
+            <img th:src="${r.imageUrl} ?: ${r.defaultImageUrl}" th:alt="${r.name}"
+                 th:attr="data-default=${r.defaultImageUrl}"
+                 onerror="this.onerror=null;this.src=this.dataset.default;"
+                 class="card-img-top" style="height:180px;object-fit:cover;">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <h5 class="card-title mb-0">
+                        <a th:href="@{/restaurants/{id}(id=${r.id})}" class="text-decoration-none text-dark" th:text="${r.name}">이름</a>
+                    </h5>
+                    <span class="badge bg-primary" th:text="${r.categoryDisplayName}">한식</span>
+                </div>
+                <p class="card-text text-muted small mb-2"><i class="bi bi-geo-alt"></i> <span th:text="${r.address}">주소</span></p>
+                <p class="card-text small" th:if="${r.description}" th:text="${r.description}">설명</p>
+                <div class="d-flex justify-content-between align-items-center">
+                    <div class="rating-stars">
+                        <i class="bi" th:each="star : ${#numbers.sequence(1,5)}"
+                           th:classappend="${star <= r.averageRating} ? 'bi-star-fill' : 'bi-star'"></i>
+                        <span class="text-muted small ms-1" th:text="'(' + ${r.averageRating} + ')'">(0.0)</span>
+                    </div>
+                    <small class="text-muted" th:text="'by ' + ${r.memberNickname}">by 닉네임</small>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-12" th:if="${#lists.isEmpty(restaurants)}">
+        <div class="alert alert-info text-center"><i class="bi bi-info-circle"></i> 등록된 맛집이 없습니다.</div>
+    </div>
+</div>
+
+<!--/* [추가]2026.11.12권성애 페이지 번호 « 1 2 … 10 » (전체가 2페이지 이상일 때만)
+       «: 이전 묶음의 마지막 번호로 (첫 묶음이면 비활성), »: 다음 묶음의 첫 번호로 (마지막 묶음이면 비활성)
+       카테고리를 고른 상태면 링크에 category 를 붙여 유지 (?category=KOREAN&page=2)
+       #numbers.sequence(startPage, endPage) : startPage 부터 endPage 까지 숫자 목록 (mypage · 상세 별점과 같은 방식)
+       aria-label : 화면 읽기 프로그램용 이름이자, 검색할 때 이 영역을 숨기려고 JS 가 찾는 값 */-->
+<nav class="mt-4" aria-label="맛집 목록 페이지" th:if="${totalPages > 1}">
+    <ul class="pagination justify-content-center">
+        <li class="page-item" th:classappend="${startPage == 1} ? 'disabled'">
+            <a class="page-link" aria-label="이전"
+               th:href="${selectedCategory != null} ? @{/restaurants(category=${selectedCategory}, page=${startPage - 1})} : @{/restaurants(page=${startPage - 1})}">&laquo;</a>
+        </li>
+        <li class="page-item" th:each="p : ${#numbers.sequence(startPage, endPage)}"
+            th:classappend="${p == currentPage} ? 'active'">
+            <a class="page-link" th:text="${p}"
+               th:href="${selectedCategory != null} ? @{/restaurants(category=${selectedCategory}, page=${p})} : @{/restaurants(page=${p})}">1</a>
+        </li>
+        <li class="page-item" th:classappend="${endPage >= totalPages} ? 'disabled'">
+            <a class="page-link" aria-label="다음"
+               th:href="${selectedCategory != null} ? @{/restaurants(category=${selectedCategory}, page=${endPage + 1})} : @{/restaurants(page=${endPage + 1})}">&raquo;</a>
+        </li>
+    </ul>
+</nav>
+
+</main>
+<th:block th:replace="~{fragments/layout :: footer}"></th:block>
+<!--/* [추가]2026.11.12권성애 없는 페이지로 왔을 때 안내 (컨트롤러가 redirect 하며 넘긴 alertMsgNoPage 가 있을 때만, 새로고침하면 다시 안 뜸) */-->
+<script th:inline="javascript">
+const alertMsgNoPage = /*[[${alertMsgNoPage}]]*/ null;
+if (alertMsgNoPage) alert(alertMsgNoPage);
+</script>
+<script>
+/* 검색: 서버가 돌려준 JSON 을 common.js 의 restaurantCardHtml() 로 카드로 만든다 (내부에서 esc() 처리) */
+
+/* [추가]2026.11.12권성애 검색 결과 카드에도 기본 이미지 (처음 화면 카드와 같게)
+   common.js(팀장 담당)의 restaurantCardHtml() 는 사진이 없으면 사진 칸을 만들지 않음
+   → 그 함수를 그대로 불러 카드를 만든 뒤, 사진 부분만 끼워 넣는다 ("감싸기")
+   ※ 다른 방법 ①: restaurantCardHtml() 전체를 이 파일에 복사해서 사진 줄만 바꾸기
+     → 팀장이 나중에 카드 모양(별점 · 버튼 등)을 바꾸면 검색 결과만 옛 모양으로 남아서 쓰지 않음
+   ※ 나중에 common.js 의 사진 줄이 기본 이미지를 넣도록 바뀌면 이 함수를 지우고 restaurantCardHtml(item) 로 되돌리면 됨
+   r: RestaurantResponse JSON (imageUrl · defaultImageUrl) */
+function restaurantCardHtmlAddBasicImage(r) {
+    const html = restaurantCardHtml(r);
+    if (!r.defaultImageUrl) return html;                         // 기본 이미지 주소가 없는 응답이면 그대로
+    const fallback = ' data-default="' + esc(r.defaultImageUrl) + '" onerror="this.onerror=null;this.src=this.dataset.default;"';
+    if (r.imageUrl) {
+        // 사진은 있는데 깨질 때를 대비해 onerror 만 붙임
+        return html.replace('<img src="', '<img' + fallback + ' src="');
+    }
+    // 사진이 없어 사진 칸이 없는 카드 → 카드 맨 위에 기본 이미지 칸을 넣음 (restaurantCardHtml 의 사진 칸과 같은 class · style)
+    const img = '<img src="' + esc(r.defaultImageUrl) + '"' + fallback +
+        ' class="card-img-top" alt="" style="height:180px;object-fit:cover;">';
+    return html.replace('<div class="card h-100">', '<div class="card h-100">' + img);
+}
+document.getElementById('searchForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+    const keyword = document.getElementById('keyword').value.trim();
+    if (!keyword) { window.location.href = '/restaurants'; return; }
+    fetchJson('/api/restaurants/search?keyword=' + encodeURIComponent(keyword))
+        .then(function (r) {
+            const container = document.getElementById('restaurantList');
+            // [추가]2026.11.12권성애 검색 결과는 페이지를 나누지 않으므로 아래 페이지 번호를 숨김 (검색어를 지우고 다시 검색하면 /restaurants 로 돌아가 다시 보임)
+            const pagination = document.querySelector('nav[aria-label="맛집 목록 페이지"]');
+            if (pagination) pagination.classList.add('d-none');
+            const list = Array.isArray(r.body) ? r.body : [];
+            if (list.length === 0) {
+                container.innerHTML = '<div class="col-12"><div class="alert alert-info text-center">검색 결과가 없습니다.</div></div>';
+                return;
+            }
+            // [변경]2026.11.12권성애 (restaurantCardHtml → restaurantCardHtmlAddBasicImage : 사진이 없거나 깨지면 기본 이미지)
+            container.innerHTML = list.map(function (item) { return restaurantCardHtmlAddBasicImage(item); }).join('');
+        });
+});
+</script>
+</body>
+</html>

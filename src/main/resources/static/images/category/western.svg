@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300" role="img" aria-label="양식 기본 이미지">
+<rect width="400" height="300" fill="#E7EEDF"/>
+<ellipse cx="200" cy="124" rx="118" ry="62" fill="#FFFFFF" stroke="#C9D3BE" stroke-width="3"/>
+<ellipse cx="200" cy="124" rx="86" ry="42" fill="#F3F0E6"/>
+<path d="M130 126 q14 -22 30 -6 t28 -10 t30 8 t30 -8 t22 14" fill="none" stroke="#E8C66A" stroke-width="7" stroke-linecap="round"/>
+<path d="M136 140 q16 -16 30 -2 t30 -8 t30 6 t30 -6 t20 10" fill="none" stroke="#E8C66A" stroke-width="7" stroke-linecap="round"/>
+<path d="M150 112 q14 -14 28 -4 t28 -6 t28 4 t22 -2" fill="none" stroke="#E8C66A" stroke-width="7" stroke-linecap="round"/>
+<ellipse cx="200" cy="120" rx="44" ry="20" fill="#C8432E"/>
+<circle cx="184" cy="116" r="6" fill="#A8321F"/><circle cx="210" cy="112" r="5" fill="#A8321F"/><circle cx="216" cy="126" r="6" fill="#A8321F"/>
+<ellipse cx="196" cy="104" rx="10" ry="5" fill="#4E8F3A" transform="rotate(-25 196 104)"/>
+<ellipse cx="210" cy="102" rx="10" ry="5" fill="#5FA346" transform="rotate(20 210 102)"/>
+<line x1="330" y1="70" x2="330" y2="182" stroke="#8E8E88" stroke-width="6" stroke-linecap="round"/>
+<path d="M320 70 v24 M330 70 v24 M340 70 v24 M320 94 q10 10 20 0" fill="none" stroke="#8E8E88" stroke-width="4" stroke-linecap="round"/>
+<text x="200" y="250" text-anchor="middle" font-size="30" font-weight="700" fill="#3E5A2E" font-family="Noto Sans KR, Apple SD Gothic Neo, Malgun Gothic, sans-serif">양식</text>
+</svg>

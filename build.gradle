@@ -136,8 +136,16 @@ dependencies {
 	// ── 테스트 라이브러리 ──
 	// ══════════════════════════════════════════════════════════
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
-	testImplementation 'org.springframework.security:spring-security-test'
-	// ↑ Spring Security 테스트: @WithMockUser, csrf() 등 보안 테스트 도구
+// ↑ JUnit 6, AssertJ, Mockito, @SpringBootTest 등 테스트 기본 도구
+
+	testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
+// ↑ @WebMvcTest, @AutoConfigureMockMvc, MockMvc (컨트롤러 테스트)
+
+	testImplementation 'org.springframework.boot:spring-boot-starter-data-jpa-test'
+// ↑ @DataJpaTest (Repository 테스트)
+
+	testImplementation 'org.springframework.boot:spring-boot-starter-security-test'
+// ↑ @WithMockUser, csrf() 등 보안 테스트 도구 (spring-security-test 를 안에 포함)
 
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 

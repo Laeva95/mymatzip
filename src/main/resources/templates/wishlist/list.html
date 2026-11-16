@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<!--/*
+============================================================
+[wishlist/list.html] 내 찜 목록 화면 (D 찜 담당)
+============================================================
+컨트롤러: HomeController.wishlistPage()  (GET /wishlists) → 넘겨주는 값 없음
+데이터: 화면이 열리면 fetch GET /api/wishlists → WishlistApiController → JSON 목록
+  [ { restaurant: { id, name, address, ... } }, ... ]
+찜 취소: fetch DELETE /api/wishlists/{restaurantId}
+============================================================
+*/-->
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('내 찜 목록')}"></head>
+<body>
+<nav th:replace="~{fragments/layout :: header}"></nav>
+<main class="container mb-5">
+    <h2 class="mb-4"><i class="bi bi-heart-fill text-danger"></i> 내 찜 목록</h2>
+    <div class="row g-4" id="wishlistContainer"></div>
+    <div id="emptyMsg" class="alert alert-info text-center d-none">
+        <i class="bi bi-info-circle"></i> 찜한 맛집이 없습니다. <a th:href="@{/restaurants}" class="alert-link">맛집 둘러보기</a>
+    </div>
+</main>
+<th:block th:replace="~{fragments/layout :: footer}"></th:block>
+<script>
+    document.addEventListener('DOMContentLoaded', loadWishlist);
+
+    function loadWishlist() {
+        fetchJson('/api/wishlists').then(function (r) {
+            if (r.status === 401) { window.location.href = '/members/login'; return; }
+            const container = document.getElementById('wishlistContainer');
+            const emptyMsg = document.getElementById('emptyMsg');
+            const list = Array.isArray(r.body) ? r.body : [];
+            if (list.length === 0) {
+                container.innerHTML = '';
+                emptyMsg.classList.remove('d-none');
+                return;
+            }
+            emptyMsg.classList.add('d-none');
+            container.innerHTML = list.map(function (w) {
+                const id = Number(w.restaurant.id);
+                return '<div class="col-md-6 col-lg-4" id="wish-' + id + '">' +
+                    '<div class="card h-100"><div class="card-body">' +
+                    '<div class="d-flex justify-content-between align-items-start">' +
+                    '<h5 class="card-title"><a href="/restaurants/' + id + '" class="text-decoration-none text-dark">' + esc(w.restaurant.name) + '</a></h5>' +
+                    '<button class="btn btn-sm btn-outline-danger" onclick="removeWish(' + id + ')"><i class="bi bi-heart-fill"></i> 취소</button>' +
+                    '</div>' +
+                    '<p class="text-muted small mb-0"><i class="bi bi-geo-alt"></i> ' + esc(w.restaurant.address) + '</p>' +
+                    '</div></div></div>';
+            }).join('');
+        }).catch(function () {
+            document.getElementById('wishlistContainer').innerHTML =
+                '<div class="col-12"><div class="alert alert-danger text-center">찜 목록을 불러오는 중 오류가 발생했습니다.</div></div>';
+        });
+    }
+
+    function removeWish(restaurantId) {
+        if (!confirm('찜을 취소하시겠습니까?')) return;
+        fetchJson('/api/wishlists/' + restaurantId, { method: 'DELETE' }).then(function (r) {
+            if (!r.ok) { alert(r.body.error || '취소에 실패했습니다.'); return; }
+            const el = document.getElementById('wish-' + restaurantId);
+            if (el) el.remove();
+            if (document.getElementById('wishlistContainer').children.length === 0) {
+                document.getElementById('emptyMsg').classList.remove('d-none');
+            }
+        });
+    }
+</script>
+</body>
+</html>

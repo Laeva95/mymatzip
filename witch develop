@@ -1,0 +1,60 @@
+>   [33m7436fae[m[33m ([m[1;31morigin/develop[m[33m, [m[1;31morigin/HEAD[m[33m)[m Merge pull request #19 from Laeva95/feature/김지현
+[31m|[m[32m\[m  
+[31m|[m > [33me66226b[m fix: 관리자 회원관리 페이지 회원 ID 오름차순 정렬 오류 수정
+[31m|[m[31m/[m  
+>   [33m497e017[m feat: 마이페이지 대시보드 및 프로필(닉네임/비밀번호) 수정 기능 구현
+[33m|[m[34m\[m  
+[33m|[m > [33m7131842[m[33m ([m[1;31morigin/feature/서희정[m[33m)[m feat: 마이페이지 대시보드 및 프로필(닉네임/비밀번호) 수정 기능 구현
+[33m|[m[33m/[m  
+>   [33maae6258[m ci: PR 코드 리뷰 자동화 워크플로 추가
+[35m|[m[36m\[m  
+[35m|[m > [33mf081fe7[m[33m ([m[1;31morigin/feature/유승민[m[33m)[m ci: PR 코드 리뷰 자동화 워크플로 추가
+[35m|[m >   [33me24adc6[m Merge branch 'develop' of https://github.com/Laeva95/mymatzip into feature/유승민
+[35m|[m [1;31m|[m[1;32m\[m  
+> [1;31m|[m [1;32m\[m   [33mdcd7d9f[m Merge pull request #16 from Laeva95/feature/김지현
+[1;33m|[m[1;34m\[m [1;31m\[m [1;32m\[m  
+[1;33m|[m > [1;31m|[m [1;32m|[m [33mbbe2280[m Wiㄹfeat. WistApiController 추가
+[1;33m|[m[1;33m/[m [1;31m/[m [1;32m/[m  
+> [1;31m|[m [1;32m|[m   [33m11363be[m Merge pull request #14 from Laeva95/feature/서희정
+[1;35m|[m[1;36m\[m [1;31m\[m [1;32m\[m  
+[1;35m|[m > [1;31m|[m [1;32m|[m [33m947110a[m fix: SecunityConfig 로그아웃 설정, feat: application-google.properties 외부 de developer 연동 추가
+[1;35m|[m[1;35m/[m [1;31m/[m [1;32m/[m  
+> [1;31m|[m [1;32m/[m [33mc8c9ff4[m Merge pull request #6 from Laeva95/feature/유승민
+[1;32m|[m[1;31m\[m[1;31m|[m [1;32m|[m 
+[1;32m|[m [1;31m|[m[1;32m/[m  
+[1;32m|[m[1;32m/[m[1;31m|[m   
+[1;32m|[m > [33m42cacfe[m test: CI 테스트용 H2 데이터베이스 설정
+[1;32m|[m > [33m20edb20[m GitHub Actions CI 자동 빌드 및 테스트 설정
+>   [33mfdcb13a[m fix: 회원, 맛집, 리뷰, 찜 기능 병합 완료
+[33m|[m[34m\[m  
+[33m|[m > [33m9c4e814[m fix: 기능회원, 맛집, 리뷰ã, 찜 기능 병1차 병합 완료
+[33m|[m[33m/[m  
+>   [33m1b4e011[m Merge pull request #7 from Laeva95/feature/김지현
+[35m|[m[36m\[m  
+[35m|[m > [33mdafae79[m feat:찜/AI 기능 추가
+>   [33m628dfc0[m Merge pull request #8 from Laeva95/feature/정범석
+[1;31m|[m[1;32m\[m  
+[1;31m|[m >   [33m58e34e3[m Merge remote-tracking branch 'origin/feature/정범석' into feature/정범석
+[1;31m|[m [1;33m|[m[1;34m\[m  
+[1;31m|[m [1;33m|[m > [33m1b69bc5[m  단골 고객관리 C담당 2차
+[1;31m|[m > [1;34m|[m [33m97477b7[m  단골 고객관리 C담당 2차
+[1;31m|[m > [1;34m|[m [33mb175455[m  단골 고객관리 C담당 2차
+[1;31m|[m [1;34m|[m[1;34m/[m  
+[1;31m|[m >   [33maf6b646[m Merge remote-tracking branch 'origin/feature/정범석' into feature/정범석
+[1;31m|[m [1;35m|[m[1;36m\[m  
+[1;31m|[m [1;35m|[m > [33m4a1a457[m  단골 고객관리 C담당 1차
+[1;31m|[m > [33m0038553[m  단골 고객관리 C담당 2차
+[1;31m|[m > [33mfa8469d[m  단골 고객관리 C담당 1차
+>   [33m3963874[m Merge pull request #12 from Laeva95/feature/권성애
+[31m|[m[32m\[m  
+[31m|[m > [33mc3b1f31[m[33m ([m[1;31morigin/feature/권성애[m[33m)[m 첫커밋 음식등록 사진부분만 파일옮김
+>   [33m59a0cdb[m Merge pull request #11 from Laeva95/feature/서희정
+[33m|[m[34m\[m  
+[33m|[m > [33md82b433[m docs : data.sql 삭제
+[33m|[m[33m/[m  
+>   [33mc6deb4b[m Merge pull request #10 from Laeva95/feature/정운학
+[35m|[m[36m\[m  
+[35m|[m > [33m591cdf7[m fix: 회원 기능 병합 및 스프링 부트 버전 오류 수정
+[35m|[m[35m/[m  
+> [33m023b06b[m feat : 로그인 화면 구현
+> [33ma08e89e[m feat : 로그인 화면 구현
