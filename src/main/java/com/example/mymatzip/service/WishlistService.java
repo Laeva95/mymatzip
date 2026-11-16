@@ -105,7 +105,8 @@ public class WishlistService {
         //   → DB에서 특정 회원(memberId)이 찜한 모든 Wishlist 데이터를 조회
         //   → Spring Data JPA의 메서드 이름 규칙으로 자동 생성된 쿼리
         //   → SQL: SELECT * FROM wishlist WHERE member_id = ?
-        return wishlistRepository.findByMemberId(memberId);
+        return wishlistRepository
+                .findByMemberIdAndRestaurant_DeletedAtIsNullOrderByCreatedAtDescIdDesc(memberId);
     }
 
     // ─── 찜 추가 메서드 ──────────────────────────────────────
@@ -127,23 +128,15 @@ public class WishlistService {
     // └─────────────────────────────────────────────────────────────────────┘
     public Wishlist add(Long restaurantId, Member loginMember) {
 
-        // [1단계] 이미 찜한 맛집인지 중복 확인
-        // wishlistRepository.existsByMemberIdAndRestaurantId(): DB에서 해당 회원이
-        //   해당 맛집을 이미 찜했는지 확인 (true: 이미 찜함, false: 아직 찜하지 않음)
-        // loginMember.getId(): 현재 로그인한 회원의 ID
-        // restaurantId: 찜하려는 맛집의 ID
-        if (wishlistRepository.existsByMemberIdAndRestaurantId(loginMember.getId(), restaurantId)) {
-            // 이미 찜한 맛집이면 예외 발생 → 중복 찜 방지
-            throw new IllegalArgumentException("이미 찜한 맛집입니다.");
-        }
-
-        // [2단계] 찜 대상 맛집이 존재하는지 확인
-        // restaurantRepository.findById(restaurantId): DB에서 해당 ID의 맛집을 조회
-        // .orElseThrow(): 맛집이 존재하지 않으면 예외 발생
-        // → 존재하지 않는 맛집을 찜할 수 없으므로 사전 확인
-        //[변경]2026.11.11권성애 (수정: findById → 삭제 안 된 맛집만)
+        // [1단계] 찜 대상 맛집이 존재하고 삭제되지 않았는지 먼저 확인
+        // [변경]2026.11.13김지현
         Restaurant restaurant = restaurantRepository.findByIdAndDeletedAtIsNull(restaurantId)
                 .orElseThrow(() -> new IllegalArgumentException("맛집을 찾을 수 없습니다."));
+
+        // [2단계] 이미 찜한 맛집인지 중복 확인
+        if (wishlistRepository.existsByMemberIdAndRestaurantId(loginMember.getId(), restaurantId)) {
+            throw new IllegalArgumentException("이미 찜한 맛집입니다.");
+        }
 
         // [3단계] Wishlist 엔티티 객체 생성 (빌더 패턴 사용)
         // 빌더 패턴: .속성명(값) 형태로 가독성 좋게 객체를 생성하는 디자인 패턴

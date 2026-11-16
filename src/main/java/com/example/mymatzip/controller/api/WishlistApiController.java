@@ -204,9 +204,14 @@ public class WishlistApiController {
             // HTTP 201(Created): "새로운 찜이 성공적으로 등록되었습니다"
             return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("message", "찜 완료!"));
         } catch (IllegalArgumentException e) {
-            // ── 3단계: 실패 시 에러 응답 ────────────────────
-            // HTTP 400(Bad Request): "이미 찜한 맛집입니다" 등의 에러
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            // [변경]2026.11.13김지현
+            // 이미 찜한 맛집이면 409 Conflict, 존재하지 않는 맛집이면 404 Not Found
+            HttpStatus status = "이미 찜한 맛집입니다.".equals(e.getMessage())
+                    ? HttpStatus.CONFLICT
+                    : HttpStatus.NOT_FOUND;
+
+            return ResponseEntity.status(status)
+                    .body(Map.of("error", e.getMessage()));
         }
     }
 
@@ -242,7 +247,9 @@ public class WishlistApiController {
             return ResponseEntity.ok(Map.of("message", "찜이 취소되었습니다."));
         } catch (IllegalArgumentException e) {
             // ── 3단계: 실패 시 에러 응답 ────────────────────
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            // [변경]2026.11.13김지현 찜 정보가 없으면 404 반환
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("error", e.getMessage()));
         }
     }
 

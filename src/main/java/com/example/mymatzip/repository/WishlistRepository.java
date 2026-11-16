@@ -84,9 +84,9 @@ public interface WishlistRepository extends JpaRepository<Wishlist, Long> {
     // [호출 예시 — WishlistService에서]
     //   List<Wishlist> myWishlist = wishlistRepository.findByMemberId(loginMemberId);
     // ──────────────────────────────────────────────────────
-    // @EntityGraph: 찜 목록 조회 시 회원(member)과 맛집(restaurant) 정보를 JOIN으로 한꺼번에 가져옵니다.
+    // 삭제되지 않은 맛집만 조회하고, 찜한 날짜 최신순으로 정렬
     @EntityGraph(attributePaths = {"member", "restaurant"})
-    List<Wishlist> findByMemberId(Long memberId);
+    List<Wishlist> findByMemberIdAndRestaurant_DeletedAtIsNullOrderByCreatedAtDescIdDesc(Long memberId);
 
     // ──────────────────────────────────────────────────────
     // [Phase 5] 특정 회원의 찜 목록 페이징 조회 메서드 (마이페이지용)
@@ -158,6 +158,59 @@ public interface WishlistRepository extends JpaRepository<Wishlist, Long> {
     //   // isWished가 true이면 빨간 하트, false이면 빈 하트를 프론트엔드에 전달
     // ──────────────────────────────────────────────────────
     boolean existsByMemberIdAndRestaurantId(Long memberId, Long restaurantId);
+
+    // ──────────────────────────────────────────────────────
+    // [추가] 특정 회원의 삭제되지 않은 맛집 찜 개수 조회
+    // ──────────────────────────────────────────────────────
+    // [사용 화면] 마이페이지 → 실제로 유효한 찜 개수 통계
+    //
+    // [매개변수]
+    //   - Long memberId : 조회할 회원 ID
+    //
+    // [반환값]
+    //   - long : 삭제되지 않은 맛집에 대한 찜 개수
+    //
+    // [Query Method 해석]
+    //   count + By + MemberId
+    //   + And + Restaurant_DeletedAtIsNull
+    //
+    //   → 회원 ID가 일치하고 맛집의 deletedAt이 NULL인
+    //     찜 기록만 카운트합니다.
+    //
+    //   SQL 개념:
+    //   SELECT COUNT(*)
+    //   FROM wishlist w
+    //   JOIN restaurant r ON w.restaurant_id = r.id
+    //   WHERE w.member_id = ?
+    //   AND r.deleted_at IS NULL
+    // ──────────────────────────────────────────────────────
+    long countByMemberIdAndRestaurant_DeletedAtIsNull(Long memberId);
+
+
+    // ──────────────────────────────────────────────────────
+    // [추가] 특정 회원의 삭제되지 않은 맛집 찜 목록 조회
+    // ──────────────────────────────────────────────────────
+    // [사용 화면] 마이페이지 → 내가 찜한 맛집 목록
+    //
+    // [EntityGraph]
+    //   - member : 회원 정보도 함께 조회
+    //   - restaurant : 맛집 정보도 함께 조회
+    //
+    //   → 목록 조회 후 회원이나 맛집 정보를 추가로 접근할 때
+    //     발생할 수 있는 N+1 문제를 줄여줍니다.
+    //
+    // [Query Method 해석]
+    //   find + By + MemberId
+    //   + And + Restaurant_DeletedAtIsNull
+    //
+    //   → 해당 회원이 찜한 기록 중 삭제되지 않은 맛집만 조회
+    //
+    // [반환값]
+    //   - List<Wishlist> : 조건에 맞는 찜 목록
+    //   - 결과가 없으면 빈 리스트 반환
+    // ──────────────────────────────────────────────────────
+    @EntityGraph(attributePaths = {"member", "restaurant"})
+    List<Wishlist> findByMemberIdAndRestaurant_DeletedAtIsNull(Long memberId);
 
     // ──────────────────────────────────────────────────────
     // [Phase 9] 특정 회원이 찜한 맛집 수 조회 (마이페이지 통계용)
