@@ -142,11 +142,12 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
     //   WHERE ... IN :ids      → 전달받은 맛집 ID만 조회
     //   GROUP BY               → 맛집별로 그룹화
     // ──────────────────────────────────────────────────────
+    //[추가]2026.11.13금정운학 AvoidNPlusOne 이름 변경 [추가]2026.11.16권성애
     @Query("SELECT r.restaurant.id AS restaurantId, AVG(r.rating) AS averageRating " +
             "FROM Review r " +
             "WHERE r.restaurant.id IN :ids " +
             "GROUP BY r.restaurant.id")
-    List<RestaurantRating> averageRatingsByRestaurantIds(@Param("ids") List<Long> ids);
+    List<RestaurantRating> averageRatingsByRestaurantIdAvoidNPlusOne(@Param("ids") List<Long> ids);
 
     // 조회 결과를 담는 Projection 인터페이스
     interface RestaurantRating {

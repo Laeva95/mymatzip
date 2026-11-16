@@ -249,7 +249,7 @@ class RestaurantNPlusOneTest {
                 .map(Restaurant::getId)
                 .toList();
 
-        Map<Long, Double> avgMap = reviewRepository.averageRatingsByRestaurantIds(ids).stream()
+        Map<Long, Double> avgMap = reviewRepository.averageRatingsByRestaurantIdAvoidNPlusOne(ids).stream()
                 .collect(Collectors.toMap(
                         ReviewRepository.RestaurantRating::getRestaurantId,
                         ReviewRepository.RestaurantRating::getAverageRating));

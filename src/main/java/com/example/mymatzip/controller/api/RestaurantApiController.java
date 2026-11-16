@@ -133,9 +133,14 @@ public class RestaurantApiController {
         // 삼항 연산자: (조건) ? (참일 때 값) : (거짓일 때 값)
         // category != null → 카테고리가 지정됨 → 해당 카테고리의 맛집만 조회
         // category == null → 카테고리 미지정 → 전체 맛집 조회
+//        List<RestaurantResponse> restaurants = (category != null)
+//                ? restaurantService.findByCategory(category)  // 카테고리별 조회
+//                : restaurantService.findAll();                 // 전체 조회
+
+        // [변경]2026.11.16권성애 N+1 방지 메서드로 변경 (findByCategory → findByCategoryAvoidNPlusOne, findAll → findAllAvoidNPlusOne)
         List<RestaurantResponse> restaurants = (category != null)
-                ? restaurantService.findByCategory(category)  // 카테고리별 조회
-                : restaurantService.findAll();                 // 전체 조회
+                ? restaurantService.findByCategoryAvoidNPlusOne(category)  // 카테고리별 조회
+                : restaurantService.findAllAvoidNPlusOne();                 // 전체 조회
 
         // ── 2단계: 200 OK + 맛집 목록 JSON 반환 ─────────────
         // ResponseEntity.ok(restaurants):
@@ -288,7 +293,11 @@ public class RestaurantApiController {
         // restaurantService.search(keyword): 키워드로 맛집 검색
         //   맛집 이름이나 주소에 키워드가 포함된 맛집들을 찾아서 반환
         // ResponseEntity.ok(...): 200 OK + 검색 결과 JSON 반환
-        return ResponseEntity.ok(restaurantService.search(keyword));
+        //return ResponseEntity.ok(restaurantService.search(keyword));
+        // [변경]2026.11.16권성애 N+1 방지 메서드로 변경 (search → searchAvoidNPlusOne)
+        return ResponseEntity.ok(restaurantService.searchAvoidNPlusOne(keyword));
+
+
     }
 
     // ──────────────────────────────────────────────────────
