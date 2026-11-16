@@ -82,7 +82,18 @@ class WishlistHeartTest {
                 .andExpect(content().string(containsString("wish-heart")))
                 .andExpect(content().string(containsString("data-restaurant-id=\"" + restaurant.getId() + "\"")))
                 .andExpect(content().string(containsString("/js/wishlist-heart.js")))
+                // 하트를 흰 원 가운데에 맞추는 스타일 (일반 카드 · 검색 결과 카드 공통 .wish-heart)
+                .andExpect(content().string(containsString("/css/wishlist-heart.css")))
                 .andExpect(content().string(containsString("WishHeart.init({ loggedIn: true")));
+    }
+
+    @Test
+    @DisplayName("하트 가운데 정렬 스타일 파일이 제공된다")
+    void 하트_스타일_파일() throws Exception {
+        mockMvc.perform(get("/css/wishlist-heart.css"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString(".wish-heart.btn")))
+                .andExpect(content().string(containsString("justify-content: center")));
     }
 
     @Test
