@@ -31,7 +31,7 @@ public class ReviewForm {
     // ──────────────────────────────────────────────────────
     @Size(max = 500, message = "이미지 경로가 너무 깁니다.")
     @Pattern(
-            regexp = "^/uploads/[a-zA-Z0-9\\-]+\\.(jpg|jpeg|png|gif|webp)$",
+            regexp = "^(/api/files/review/|https://[a-zA-Z0-9.\\-]+\\.amazonaws\\.com/(?:[a-zA-Z0-9_\\-/]+/)?review/)[a-zA-Z0-9_\\-]+\\.(jpg|jpeg|png|gif|webp)$",
             message = "올바른 이미지 경로 형식이 아닙니다."
     )
     private String imageUrl;

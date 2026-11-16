@@ -167,6 +167,51 @@ API (MyPageApiController)
             if (r.ok) { document.getElementById('currentPassword').value = ''; document.getElementById('newPassword').value = ''; }
         });
     });
+
+    // 페이지 번호를 10개 단위로 끊어서 보여주고 화살표로 10페이지씩 점프하는 함수
+    function renderPagination(navId, totalPages, currentPage, loadFunction) {
+        const ul = document.getElementById(navId).querySelector('ul');
+        if (totalPages <= 1) {
+            ul.innerHTML = '';
+            return;
+        }
+
+        const maxVisible = 10; //화면에 보여줄 페이지 번호 개수 (10개)
+        // 현재 페이지가 속한 블록의 시작 번호와 끝 번호 계산
+        const startPage = Math.floor(currentPage / maxVisible) * maxVisible;
+        const endPage = Math.min(startPage + maxVisible, totalPages);
+
+        let html = '';
+
+        // 1. 왼쪽 화살표 : 이전 10개 블록의 첫 페이지로 점프! (예: 15페이지에서 누르면 0페이지로)
+        const prevPage = Math.max(0, startPage - 1);
+        html += '<li class="page-item ' + (startPage === 0 ? 'disabled' : '') + '">' +
+                '<a class="page-link" href="#" data-page="' + prevPage + '">&laquo;</a></li>';
+
+        // 2.페이지 번호 (StartPage 부터 endPage 까지만 딱 10개 반복!)
+        for (let i = startPage; i < endPage; i++) {
+            html += '<li class="page-item ' + (i === currentPage ? 'active' : '') + '">' +
+                    '<a class="page-link" href="#" data-page="' + i + '">' + (i + 1) + '</a></li>';
+        }
+
+        // 3. 오른쪽 화살표 : 다음 10개 블록의 첫 페이지로 점프! (예: 5페이지에서 누르면 10페이지로)
+        const nextPage = endPage;
+        html += '<li class="page-item ' + (endPage >= totalPages ? 'disabled' : '') + '">' +
+                '<a class="page-link" href="#" data-page="' + nextPage + '">&raquo;</a></li>';
+
+        ul.innerHTML = html;
+
+        // 클릭 이벤트 연결
+        ul.querySelectorAll('a.page-link').forEach(function (link) {
+            link.addEventListener('click', function (e) {
+                e.preventDefault();
+                const page = parseInt(this.getAttribute('data-page'));
+                if (page >= 0 && page < totalPages) {
+                    loadFunction(page);
+                }
+            });
+        });
+    }
 </script>
 </body>
 </html>

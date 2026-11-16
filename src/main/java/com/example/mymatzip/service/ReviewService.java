@@ -9,6 +9,7 @@ import com.example.mymatzip.entity.Review;
 import com.example.mymatzip.entity.Role;
 import com.example.mymatzip.repository.RestaurantRepository;
 import com.example.mymatzip.repository.ReviewRepository;
+import com.example.mymatzip.service.FileService;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -26,6 +27,7 @@ public class ReviewService {
 
     private final ReviewRepository reviewRepository;
     private final RestaurantRepository restaurantRepository;
+    private final FileService fileService;
 
     public List<ReviewResponse> findByRestaurantId(Long restaurantId) {
         return reviewRepository.findByRestaurantIdOrderByCreatedAtDesc(restaurantId).stream()
@@ -80,7 +82,12 @@ public class ReviewService {
             throw new AccessDeniedException("삭제 권한이 없습니다.");
         }
 
+
         review.getRestaurant().clearAiSummary();
+        // [추가] 리뷰 이미지 기록 삭제
+        if (review.getImageUrl() != null) {
+            fileService.deleteImageRecord(review.getImageUrl());
+        }
         reviewRepository.delete(review);
     }
 

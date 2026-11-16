@@ -1,0 +1,71 @@
+name: CD Deploy to EC2 via S3
+
+# 실행 조건: main 에 머지(push)될 때, 또는 Actions 화면에서 Run workflow 로 직접 실행할 때
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+# 배포가 두 개 동시에 돌지 않게 막음
+concurrency:
+  group: deploy-main
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 코드 내려받기
+        uses: actions/checkout@v4
+
+      - name: JDK 21 설치 + Gradle 캐시
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: 'gradle'
+
+      - name: 빌드 (테스트 포함)
+        run: |
+          chmod +x gradlew
+          ./gradlew clean build
+
+      - name: 배포 파일 준비
+        run: |
+          mkdir -p deploy-out
+          # build.gradle 의 bootJar 설정으로 build/libs/my-matzip.jar 하나만 만들어진다
+          cp build/libs/my-matzip.jar deploy-out/my-matzip.jar
+
+      - name: AWS 로그인 (GitHub용 IAM 사용자)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: S3 에 배포 파일 업로드
+        run: aws s3 cp deploy-out/my-matzip.jar s3://${{ secrets.S3_BUCKET }}/deploy/my-matzip.jar
+
+      - name: EC2 에서 내려받고 재시작 + 접속 확인
+        uses: appleboy/ssh-action@v1.0.3
+        env:
+          S3_BUCKET: ${{ secrets.S3_BUCKET }}
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          envs: S3_BUCKET
+          script: |
+            aws s3 cp s3://$S3_BUCKET/deploy/my-matzip.jar /home/ubuntu/matzip/my-matzip.jar
+            sudo systemctl restart matzip
+            for i in $(seq 1 40); do
+              if curl -sf http://localhost:8082/ > /dev/null; then
+                echo "배포 성공"
+                exit 0
+              fi
+              sleep 3
+            done
+            echo "배포 실패: 최근 로그"
+            sudo journalctl -u matzip -n 60 --no-pager
+            exit 1
