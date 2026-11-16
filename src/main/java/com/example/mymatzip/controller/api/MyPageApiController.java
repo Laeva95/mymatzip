@@ -97,7 +97,7 @@ public class MyPageApiController {
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
 
         // DB에서 내가 등록한 맛집 조회
-        Page<Restaurant> restaurantPage = restaurantRepository.findByMemberId(loginMember.getId(), pageable);
+        Page<Restaurant> restaurantPage = restaurantRepository.findByMemberIdAndDeletedAtIsNull(loginMember.getId(), pageable);
 
         // 날짜 포맷터: 2026-03-14 형식으로 변환
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
@@ -174,7 +174,7 @@ public class MyPageApiController {
     public ResponseEntity<Map<String, Object>> stats(@LoginMember Member loginMember) {
 
         // 각 항목의 개수를 DB에서 조회
-        long restaurantCount = restaurantRepository.countByMemberId(loginMember.getId());
+        long restaurantCount = restaurantRepository.countByMemberIdAndDeletedAtIsNull(loginMember.getId());
         long reviewCount = reviewRepository.countByMemberId(loginMember.getId());
         long wishlistCount = wishlistRepository.countByMemberId(loginMember.getId());
 
