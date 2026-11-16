@@ -124,7 +124,15 @@
             <div class="mb-2">
                 <textarea id="reviewContent" class="form-control" rows="3" maxlength="1000" placeholder="맛집 후기를 남겨주세요!"></textarea>
             </div>
-            <button type="button" class="btn btn-primary btn-sm" onclick="submitReview()"><i class="bi bi-send"></i> 리뷰 등록</button>
+            <div class="mb-2">
+                <label for="reviewImageFile" class="form-label">사진 (선택 · jpg · png · gif · webp, 5MB 이하)</label>
+                <input type="file" class="form-control form-control-sm" id="reviewImageFile" accept=".jpg,.jpeg,.png,.gif,.webp">
+                <div id="reviewImageBox" class="d-none mt-2">
+                    <img id="reviewImagePreview" alt="리뷰 사진 미리보기" class="img-thumbnail" style="max-height:160px;">
+                    <button type="button" class="btn btn-sm btn-outline-danger ms-2" id="reviewImageRemove">사진 삭제</button>
+                </div>
+            </div>
+            <button type="button" id="reviewSubmitBtn" class="btn btn-primary btn-sm" onclick="submitReview()"><i class="bi bi-send"></i> 리뷰 등록</button>
         </div>
 
         <div id="reviewList">
@@ -148,6 +156,11 @@
                 </div>
                 <!--/* 리뷰 내용: th:text 이므로 < > 가 들어 있어도 글자로만 보인다 (XSS 방지) */-->
                 <p class="mt-2 mb-1" style="white-space:pre-line;" th:text="${review.content}">리뷰 내용</p>
+                <a th:if="${!#strings.isEmpty(review.imageUrl)}" th:href="${review.imageUrl}" target="_blank" rel="noopener">
+                    <img th:src="${review.imageUrl}" alt="리뷰 사진" class="img-thumbnail mb-2"
+                         style="max-height:200px;max-width:100%;object-fit:cover;"
+                         onerror="this.closest('a').remove();">
+                </a>
                 <div class="mt-2">
                     <button type="button" class="btn btn-outline-secondary btn-sm btn-reply-toggle" th:attr="data-id=${review.id}">
                         <i class="bi bi-chat-left-text"></i> <span th:id="'replyToggleText-' + ${review.id}">답글 보기</span>
@@ -208,19 +221,82 @@ document.querySelectorAll('.star-pick').forEach(function (star) {
 });
 
 /* ── C 리뷰: 작성 (POST /api/reviews → ReviewApiController.create) ── */
+/* ── C 리뷰: 사진 선택 (고를 때는 미리보기만, 등록 누를 때 업로드) ── */
+const MAX_REVIEW_IMAGE_BYTES = 5 * 1024 * 1024;   // 서버 multipart 5MB 와 같음
+const ALLOWED_REVIEW_IMAGE_EXT = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+let reviewImageFile = null;     // 고른 파일 (아직 안 올림)
+let reviewImageUrl = null;      // 업로드 끝난 주소 (등록만 실패했을 때 다시 안 올리려고)
+let reviewPreviewUrl = null;
+
+function clearReviewImage() {
+    reviewImageFile = null;
+    reviewImageUrl = null;
+    if (reviewPreviewUrl) { URL.revokeObjectURL(reviewPreviewUrl); reviewPreviewUrl = null; }
+    document.getElementById('reviewImageFile').value = '';
+    document.getElementById('reviewImageBox').classList.add('d-none');
+}
+const reviewImageInput = document.getElementById('reviewImageFile');   // 비로그인이면 null
+if (reviewImageInput) {
+    reviewImageInput.addEventListener('change', function () {
+        const file = this.files[0];
+        if (!file) return;
+        const ext = file.name.includes('.') ? file.name.split('.').pop().toLowerCase() : '';
+        if (!ALLOWED_REVIEW_IMAGE_EXT.includes(ext)) { alert('jpg · png · gif · webp 사진만 올릴 수 있습니다.'); clearReviewImage(); return; }
+        if (file.size > MAX_REVIEW_IMAGE_BYTES) { alert('사진은 5MB 이하만 올릴 수 있습니다.'); clearReviewImage(); return; }
+        if (reviewPreviewUrl) URL.revokeObjectURL(reviewPreviewUrl);
+        reviewImageFile = file;
+        reviewImageUrl = null;
+        reviewPreviewUrl = URL.createObjectURL(file);
+        document.getElementById('reviewImagePreview').src = reviewPreviewUrl;
+        document.getElementById('reviewImageBox').classList.remove('d-none');
+    });
+    document.getElementById('reviewImageRemove').addEventListener('click', clearReviewImage);
+}
+
+function uploadReviewImage() {
+    if (reviewImageUrl) return Promise.resolve(reviewImageUrl);
+    if (!reviewImageFile) return Promise.resolve(null);
+
+    const fd = new FormData();
+    fd.append('file', reviewImageFile);
+    fd.append('folder', 'review');            // [추가] review 폴더로 저장
+
+    return fetchJson('/api/files/uploadfors3only', {   // [변경] upload → uploadfors3only
+        method: 'POST',
+        body: fd
+    }).then(function (r) {
+        if (!r.ok) throw new Error(r.body.error || '사진 업로드에 실패했습니다.');
+        reviewImageUrl = r.body.url;
+        return reviewImageUrl;
+    });
+}
+
+
+/* ── C 리뷰: 작성 (사진 업로드 → POST /api/reviews) ── */
 function submitReview() {
     const rating = parseInt(document.getElementById('rating').value);
     const content = document.getElementById('reviewContent').value.trim();
     if (rating === 0) { alert('별점을 선택해주세요.'); return; }
     if (!content) { alert('리뷰 내용을 입력해주세요.'); return; }
-    fetchJson('/api/reviews', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: content, rating: rating, restaurantId: restaurantId })
+    const btn = document.getElementById('reviewSubmitBtn');
+    btn.disabled = true;                      // 업로드·등록 중 중복 클릭 방지
+    uploadReviewImage().then(function (url) {
+        return fetchJson('/api/reviews', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ content: content, rating: rating, restaurantId: restaurantId, imageUrl: url })
+        });
     }).then(function (r) {
-        if (r.ok) window.location.reload();
-        else alert(r.body.error || '리뷰 등록에 실패했습니다.');
+        if (r.ok) { window.location.reload(); return; }
+        alert(r.body.error || '리뷰 등록에 실패했습니다.');
+        btn.disabled = false;
+    }).catch(function (e) {
+        alert(e.message || '서버 오류가 발생했습니다.');
+        btn.disabled = false;
     });
+
+
+
 }
 
 /* ── C 리뷰: 삭제 / 신고 / 답글 버튼 연결 ── */
