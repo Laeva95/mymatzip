@@ -238,4 +238,12 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
     // [반환값] long — 해당 회원이 작성한 리뷰의 총 개수
     // ──────────────────────────────────────────────────────
     long countByMemberId(Long memberId);
+
+    // [추가] 삭제된 맛집의 리뷰 제외 - 마이페이지 페이징 조회
+    @EntityGraph(attributePaths = {"member", "restaurant"})
+    Page<Review> findByMemberIdAndRestaurant_DeletedAtIsNull(
+            Long memberId, Pageable pageable);
+
+    // [추가] 삭제된 맛집의 리뷰 제외 - 마이페이지 리뷰 개수
+    long countByMemberIdAndRestaurant_DeletedAtIsNull(Long memberId);
 }
