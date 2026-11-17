@@ -245,4 +245,15 @@ public class MemberService {
         Member member = findById(id);
         member.updatePassword(encodedPassword);
     }
+
+    // ─── [11/16 추가] 회원 탈퇴 메소드 ───────────────────────────
+    // @Transactional : DB에서 회원 데이터를 삭제(DELETE)하므로 쓰기 트랜잭션 필수!
+    @Transactional
+    public void deleteMember(Long id) {
+        // 1. 존재하는 회원인지 먼저 확인 (없으면 예외 발생)
+        Member member = findById(id);
+        // 2.DB에서 해당 회원 삭제
+        memberRepository.delete(member);
+    }
+
 }
