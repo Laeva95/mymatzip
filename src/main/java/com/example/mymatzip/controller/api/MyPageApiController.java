@@ -138,7 +138,7 @@ public class MyPageApiController {
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
 
         // DB에서 내가 작성한 리뷰 조회
-        Page<Review> reviewPage = reviewRepository.findByMemberId(loginMember.getId(), pageable);
+        Page<Review> reviewPage = reviewRepository.findByMemberIdAndRestaurant_DeletedAtIsNull(loginMember.getId(), pageable);
 
         // 날짜 포맷터
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
@@ -175,8 +175,8 @@ public class MyPageApiController {
 
         // 각 항목의 개수를 DB에서 조회
         long restaurantCount = restaurantRepository.countByMemberIdAndDeletedAtIsNull(loginMember.getId());
-        long reviewCount = reviewRepository.countByMemberId(loginMember.getId());
-        long wishlistCount = wishlistRepository.countByMemberId(loginMember.getId());
+        long reviewCount = reviewRepository.countByMemberIdAndRestaurant_DeletedAtIsNull(loginMember.getId());
+        long wishlistCount = wishlistRepository.countByMemberIdAndRestaurant_DeletedAtIsNull(loginMember.getId());
 
         // 응답 데이터 구성
         Map<String, Object> response = new HashMap<>();
