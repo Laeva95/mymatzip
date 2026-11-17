@@ -148,7 +148,7 @@ public class SecurityConfig {
 
                         // permitAll(): 누구나 접근 가능 (로그인 안 해도 됨)
                         .requestMatchers(
-                                "/",                        // 메인 페이지
+                                "/",               // 메인 페이지
                                 "/members/login",           // 로그인 페이지
                                 "/members/signup",          // 회원가입 페이지
                                 "/api/members/login",       // 로그인 API
@@ -160,9 +160,12 @@ public class SecurityConfig {
                                 "/login/oauth2/**"          // OAuth2 콜백 경로
                         ).permitAll()
 
-                        // hasRole("ADMIN"): ADMIN 역할을 가진 회원만 접근 가능
                         // [팀 프로젝트] S3 사진 보기(GET /api/files/파일이름)는 누구나. 업로드(POST)는 아래 anyRequest 규칙으로 로그인 필요
                         .requestMatchers(HttpMethod.GET, "/api/files/**").permitAll()
+                        // ── [11/17 추가] 맛집 조회는 비로그인 허용 (단, 등록/수정 화면은 로그인 필수!) ──
+                        .requestMatchers("/restaurants/new", "/restaurants/*/edit").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/restaurants", "/restaurants/*", "/api/restaurants/**", "/api/reviews/**").permitAll()
+                        // hasRole("ADMIN"): ADMIN 역할을 가진 회원만 접근 가능
                         .requestMatchers("/admin/**", "/api/admin/**").hasRole("ADMIN")
 
                         // anyRequest().authenticated(): 위에서 지정하지 않은 모든 URL은 로그인 필요
