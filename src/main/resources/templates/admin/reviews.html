@@ -92,9 +92,17 @@ API: GET /api/admin/reviews, GET /api/admin/reviews/reported, DELETE /api/admin/
         });
     }
 
+    // "신고된 리뷰" 탭: 리뷰는 남기고 신고 기록만 삭제
+    // "전체" 탭: 리뷰 자체를 삭제
     function deleteReview(id) {
-        if (!confirm('이 리뷰를 삭제하시겠습니까?')) return;
-        fetchJson('/api/admin/reviews/' + id, { method: 'DELETE' }).then(function (r) {
+        const message = onlyReported
+            ? '이 리뷰의 신고 기록을 삭제하시겠습니까?\n(리뷰 자체는 삭제되지 않습니다.)'
+            : '이 리뷰를 삭제하시겠습니까?';
+        const url = onlyReported
+            ? '/api/admin/reviews/' + id + '/report'
+            : '/api/admin/reviews/' + id;
+        if (!confirm(message)) return;
+        fetchJson(url, { method: 'DELETE' }).then(function (r) {
             alert(r.body.message || r.body.error || '처리되었습니다.');
             if (r.ok) loadReviews();
         });
