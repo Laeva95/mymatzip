@@ -77,6 +77,20 @@ API (MyPageApiController)
                         <button type="submit" class="btn btn-warning"><i class="bi bi-check-circle"></i> 비밀번호 변경</button>
                     </form>
                 </div></div>
+                <!-- [11/16 추가] 회원 탈퇴 카드 -->
+                <div class="card shadow-sm border-danger mt-4"><div class="card-body">
+                    <h5 class="card-title text-danger mb-2"><i class="bi bi-exclamation-triangle"></i> 회원 탈퇴</h5>
+                    <p class="text-muted small mb-3">탈퇴 시 계정 정보와 작성한 맛집·리뷰·찜 데이터가 모두 삭제되며 복구할 수 없습니다.</p>
+                    <div id="withdrawMsg" class="alert d-none"></div>
+                    <form id="withdrawForm">
+                        <!-- 일반 가입 회원에게만 비밀번호 입력창 표시 (소셜 로그인 회원은 숨김) -->
+                        <div class="mb-3" th:if="${loginMember.provider == null}">
+                            <label for="withdrawPassword" class="form-label">비밀번호 확인</label>
+                            <input type="password" class="form-control" id="withdrawPassword" placeholder="현재 비밀번호를 입력하세요" required>
+                        </div>
+                        <button type="submit" class="btn btn-outline-danger"><i class="bi bi-person-x"></i> 회원 탈퇴</button>
+                    </form>
+                </div></div>
             </div></div>
         </div>
     </div>
@@ -165,6 +179,30 @@ API (MyPageApiController)
         }).then(function (r) {
             showMsg('passwordMsg', r.ok, r.ok ? r.body.message : (r.body.error || '변경에 실패했습니다.'));
             if (r.ok) { document.getElementById('currentPassword').value = ''; document.getElementById('newPassword').value = ''; }
+        });
+    });
+
+    // [11/16 추가] 회원 탈퇴 폼 제출 이벤트
+    document.getElementById('withdrawForm').addEventListener('submit', function (e) {
+        e.preventDefault();
+        if (!confirm('정말로 탈퇴하시겠습니까? 탈퇴 후에는 계정을 복구할 수 없습니다.')) {
+            return;
+        }
+
+        const pwInput = document.getElementById('withdrawPassword');
+        const password = pwInput ? pwInput.value : '';
+
+        fetchJson('/api/mypage/withdraw', {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ password: password })
+        }).then(function (r) {
+            if (r.ok) {
+                alert(r.body.message);
+                window.location.href = '/'; // 탈퇴 성공 시 메인(또는 로그인) 화면으로 이동
+            } else {
+                showMsg('withdrawMsg', false, r.body.error || '회원 탈퇴에 실패했습니다.');
+            }
         });
     });
 
