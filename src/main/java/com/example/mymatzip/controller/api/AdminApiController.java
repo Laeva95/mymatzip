@@ -269,4 +269,20 @@ public class AdminApiController {
                     .body(Map.of("error", e.getMessage()));
         }
     }
+
+    // ── [추가] 리뷰 신고 기록 삭제 ──────────────────────────────
+    // URL: DELETE /api/admin/reviews/{id}/report
+    // 동작: 리뷰는 삭제하지 않고 신고 표시만 해제합니다. ("신고된 리뷰" 탭의 휴지통 버튼)
+    @DeleteMapping("/reviews/{id}/report")
+    public ResponseEntity<Map<String, Object>> clearReviewReport(
+            @LoginMember Member loginMember,
+            @PathVariable Long id) {
+        try {
+            adminService.clearReviewReport(id);
+            return ResponseEntity.ok(Map.of("message", "신고 기록이 삭제되었습니다."));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("error", e.getMessage()));
+        }
+    }
 }
