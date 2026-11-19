@@ -38,7 +38,7 @@ class AiRecommendPromptTest {
         ChatClient.Builder builder = mock(ChatClient.Builder.class);
         when(builder.build()).thenReturn(chatClient);
         RestaurantService restaurantService = mock(RestaurantService.class);
-        when(restaurantService.findAll()).thenReturn(List.of(soup));
+        when(restaurantService.findAllAvoidNPlusOne()).thenReturn(List.of(soup));
         limiter = new AiUsageLimiter(2);
         service = new AiRecommendService(builder, restaurantService, limiter);
     }

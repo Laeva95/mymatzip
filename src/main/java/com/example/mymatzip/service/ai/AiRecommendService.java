@@ -68,7 +68,7 @@ public class AiRecommendService {
         // 2) 후보 목록: RestaurantService.findAll() 이 RestaurantResponse(평균 별점 포함) 목록을 돌려준다
         //    [변경] 예전: 별점→최신순 50개만 잘라 보냄 → 리뷰가 없으면 "최근 등록 50개" 라 그 밖의 음식 종류·지역은 추천 불가
         //           지금: 질문의 음식 종류·지역 조건에 맞는 맛집을 전체에서 골라 최대 50개 (AiCandidateSelector)
-        List<RestaurantResponse> all = restaurantService.findAll();
+        List<RestaurantResponse> all = restaurantService.findAllAvoidNPlusOne();
         if (all.isEmpty()) {
             throw new IllegalArgumentException("등록된 맛집이 없어 추천할 수 없습니다.");
         }

@@ -1,5 +1,14 @@
 package com.example.mymatzip.config.ai;
 
+//FreeModelGuard: 무료 AI 모델만 사용하도록 검사하는 보호 클래스
+
+//jakarta : java에서 사용하는 여러 기술 및 라이브러리를 관리하는 생태계 이름
+//Jakarta EE(Jakarta Enterprise Edition): 기업용 Java 애플리케이션을 개발하기 위한 표준 기술 명세(API)들의 집합이다.
+
+//Java 애플리케이션을 개발하고 관리하기 위한 프레임워크(Framework)인 Spring이 관리하는 객체(Bean)의 의존성 주입이 완료된 후, 초기화 단계에서 지정된 메서드를 자동 실행하도록 하는 어노테이션
+//Class : 객체를 만들기 위한 설계도
+//Object : 실제로 생성된 객체
+//Bean : Spring이 관리하는 객체
 import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
