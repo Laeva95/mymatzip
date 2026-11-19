@@ -45,6 +45,7 @@ import com.example.mymatzip.dto.RestaurantResponse;
 import com.example.mymatzip.entity.Category;
 
 // RestaurantService: 맛집 관련 비즈니스 로직 서비스
+import com.example.mymatzip.entity.Role;
 import com.example.mymatzip.service.RestaurantService;
 
 // ReviewService: 리뷰 관련 비즈니스 로직 서비스
@@ -234,7 +235,7 @@ public class RestaurantViewController {
         //   예: [KOREAN, JAPANESE, CHINESE, WESTERN, ...]
         // 타임리프 화면에서 카테고리 필터 버튼들을 생성하는 데 사용
         model.addAttribute("categories", Category.values());
-
+        model.addAttribute("pageBlock", pageBlock);   // [추가]2026.11.19권성애 « » 표시 여부 판단용 (app.restaurant.page-block)
         // ── 3단계: 타임리프 화면 이름 반환 ─────────────────────────
         // → templates/restaurant/list.html 렌더링
         return "restaurant/list";
@@ -256,7 +257,11 @@ public class RestaurantViewController {
     //   → templates/restaurant/detail.html 렌더링
     @GetMapping("/{id}")
     public String detail(@PathVariable Long id, Model model,
-                         @LoginMember Member loginMember) {
+                         @LoginMember Member loginMember,
+                         // [추가]2026.11.19권성애 목록에서 넘어온 페이지 · 카테고리 (없으면 null)
+                         //   String 으로 받음: Category 로 받으면 이상한 값(?category=ABC)일 때 상세 화면이 400 에러가 남
+                         @RequestParam(required = false) String page,
+                         @RequestParam(required = false) String category) {
         // ── 1단계: 맛집 상세 정보를 Model에 담기 ────────────
         // restaurantService.findById(id): 해당 ID의 맛집을 DB에서 조회
         // "restaurant"라는 이름으로 Model에 담음 → 타임리프 화면에서 ${restaurant}로 접근
@@ -287,6 +292,10 @@ public class RestaurantViewController {
 
         // ── 5단계: 타임리프 화면 이름 반환 ─────────────────────────
         // → templates/restaurant/detail.html 렌더링
+
+        // [추가]2026.11.19권성애 "목록으로" 버튼이 돌아갈 페이지 · 카테고리
+        model.addAttribute("listPage", page);
+        model.addAttribute("listCategory", category);
         return "restaurant/detail";
     }
 
@@ -302,7 +311,12 @@ public class RestaurantViewController {
     // 반환값: String "restaurant/form"
     //   → templates/restaurant/form.html 렌더링
     @GetMapping("/new")
-    public String createForm(Model model) {
+    public String createForm(Model model, @LoginMember Member loginMember) {
+        // [추가]2026.11.19권성애 OWNER · ADMIN 이 아니면 목록으로 돌려보냄
+        if (loginMember == null
+                || (loginMember.getRole() != Role.OWNER && loginMember.getRole() != Role.ADMIN)) {
+            return "redirect:/restaurants";
+        }
         // ── 1단계: 카테고리 목록을 Model에 담기 ─────────────
         // Category.values(): 모든 카테고리 값을 배열로 가져옴
         // 타임리프 화면의 카테고리 선택 드롭다운(select) 메뉴를 만드는 데 사용

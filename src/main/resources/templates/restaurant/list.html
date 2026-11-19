@@ -25,7 +25,9 @@
 
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h2><i class="bi bi-list-ul"></i> 맛집 목록</h2>
-    <a th:if="${loginMember != null}" th:href="@{/restaurants/new}" class="btn btn-primary"><i class="bi bi-plus-circle"></i> 맛집 등록</a>
+    <!-- [변경]2026.11.19권성애 맛집 등록 버튼: 로그인 + OWNER · ADMIN 만 표시 -->
+    <a th:if="${loginMember != null and (loginMember.role.name() == 'OWNER' or loginMember.role.name() == 'ADMIN')}"
+       th:href="@{/restaurants/new}" class="btn btn-primary"><i class="bi bi-plus-circle"></i> 맛집 등록</a>
 </div>
 
 <div class="row mb-3">
@@ -70,7 +72,12 @@
             <div class="card-body">
                 <div class="d-flex justify-content-between align-items-start mb-2">
                     <h5 class="card-title mb-0">
-                        <a th:href="@{/restaurants/{id}(id=${r.id})}" class="text-decoration-none text-dark" th:text="${r.name}">이름</a>
+<!--                        <a th:href="@{/restaurants/{id}(id=${r.id})}" -->
+                        <!-- [변경]2026.11.19권성애 상세로 갈 때 지금 페이지 · 카테고리를 같이 넘김 (상세의 "목록으로"가 그 페이지로 돌아오게) -->
+                        <a th:href="${selectedCategory != null}
+                        ? @{/restaurants/{id}(id=${r.id}, page=${currentPage}, category=${selectedCategory})}
+                        : @{/restaurants/{id}(id=${r.id}, page=${currentPage})}"
+                           class="text-decoration-none text-dark" th:text="${r.name}">이름</a>
                     </h5>
                     <span class="badge bg-primary" th:text="${r.categoryDisplayName}">한식</span>
                 </div>
@@ -99,7 +106,9 @@
        aria-label : 화면 읽기 프로그램용 이름이자, 검색할 때 이 영역을 숨기려고 JS 가 찾는 값 */-->
 <nav class="mt-4" aria-label="맛집 목록 페이지" th:if="${totalPages > 1}">
     <ul class="pagination justify-content-center">
-        <li class="page-item" th:classappend="${startPage == 1} ? 'disabled'">
+        <!-- [변경]2026.11.19권성애 전체 페이지가 pageBlock(10) 이하이면 « 숨김 -->
+        <li class="page-item" th:if="${totalPages > pageBlock}"
+            th:classappend="${startPage == 1} ? 'disabled'">
             <a class="page-link" aria-label="이전"
                th:href="${selectedCategory != null} ? @{/restaurants(category=${selectedCategory}, page=${startPage - 1})} : @{/restaurants(page=${startPage - 1})}">&laquo;</a>
         </li>
@@ -108,7 +117,9 @@
             <a class="page-link" th:text="${p}"
                th:href="${selectedCategory != null} ? @{/restaurants(category=${selectedCategory}, page=${p})} : @{/restaurants(page=${p})}">1</a>
         </li>
-        <li class="page-item" th:classappend="${endPage >= totalPages} ? 'disabled'">
+        <!-- [변경]2026.11.19권성애 전체 페이지가 pageBlock(10) 이하이면 » 숨김 -->
+        <li class="page-item" th:if="${totalPages > pageBlock}"
+            th:classappend="${endPage >= totalPages} ? 'disabled'">
             <a class="page-link" aria-label="다음"
                th:href="${selectedCategory != null} ? @{/restaurants(category=${selectedCategory}, page=${endPage + 1})} : @{/restaurants(page=${endPage + 1})}">&raquo;</a>
         </li>

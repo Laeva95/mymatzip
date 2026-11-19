@@ -188,7 +188,11 @@
 </div>
 
 <div class="mt-3">
-    <a th:href="@{/restaurants}" class="btn btn-outline-secondary"><i class="bi bi-arrow-left"></i> 목록으로</a>
+    <!-- [변경]2026.11.19권성애 보던 목록 페이지 · 카테고리로 돌아가기 (없으면 그냥 /restaurants = 1페이지) -->
+    <a th:href="${listCategory != null}
+                ? @{/restaurants(category=${listCategory}, page=${listPage})}
+                : (${listPage != null} ? @{/restaurants(page=${listPage})} : @{/restaurants})"
+       class="btn btn-outline-secondary"><i class="bi bi-arrow-left"></i> 목록으로</a>
 </div>
 </main>
 <th:block th:replace="~{fragments/layout :: footer}"></th:block>
