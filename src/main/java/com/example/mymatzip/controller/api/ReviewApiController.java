@@ -80,13 +80,16 @@ public class ReviewApiController {
             return ResponseEntity.status(HttpStatus.CREATED).body(response);
 
         } catch (EntityNotFoundException e) {
-            // 3단계-A: 존재하지 않는 맛집일 때 (404 Not Found)
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
                     .body(Map.of("error", e.getMessage()));
 
         } catch (IllegalArgumentException e) {
-            // 3단계-B: 잘못된 요청 값일 때 (400 Bad Request)
             return ResponseEntity.badRequest()
+                    .body(Map.of("error", e.getMessage()));
+
+            // [추가] 본인 가게 등 권한 없음 (403 Forbidden)
+        } catch (AccessDeniedException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
                     .body(Map.of("error", e.getMessage()));
         }
     }
