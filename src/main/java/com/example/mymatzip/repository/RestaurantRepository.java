@@ -171,8 +171,8 @@ public interface RestaurantRepository extends JpaRepository<Restaurant, Long> {
     // [추가]2026.11.11권성애 (수정: deletedAt IS NULL 조건 추가, OR 묶음은 괄호로)
     @Query("SELECT r FROM Restaurant r " +
            "WHERE r.deletedAt IS NULL " +
-           "AND (LOWER(r.name) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
-           "OR LOWER(r.address) LIKE LOWER(CONCAT('%', :keyword, '%')))")
+           "AND LOWER(r.name) LIKE LOWER(CONCAT('%', :keyword, '%'))" )
+           //"OR LOWER(r.address) LIKE LOWER(CONCAT('%', :keyword, '%')))")
     Page<Restaurant> searchByKeyword(@Param("keyword") String keyword, Pageable pageable);
 
     // ──────────────────────────────────────────────────────
