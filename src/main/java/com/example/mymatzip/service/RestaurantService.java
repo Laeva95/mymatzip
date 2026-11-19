@@ -46,6 +46,7 @@ import com.example.mymatzip.entity.Member;
 import com.example.mymatzip.entity.Restaurant;
 
 // RestaurantRepository: DB의 restaurant 테이블에 접근하는 인터페이스 (CRUD 기능 제공)
+import com.example.mymatzip.entity.Role;
 import com.example.mymatzip.repository.RestaurantRepository;
 
 // ReviewRepository: DB의 review 테이블에 접근하는 인터페이스
@@ -63,6 +64,7 @@ import lombok.RequiredArgsConstructor;
 
 // @Service: 이 클래스가 "서비스 계층"임을 Spring에게 알려주는 어노테이션
 // → Spring이 자동으로 이 클래스의 객체(Bean)를 생성하고 관리함
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 
 // @Transactional: DB 작업을 하나의 트랜잭션(작업 단위)으로 묶어주는 어노테이션
@@ -278,6 +280,11 @@ public class RestaurantService {
     // └─────────────────────────────────────────────────────────────────────┘
     public RestaurantResponse save(RestaurantForm form, Member loginMember) {
 
+        // [추가]2026.11.19권성애 맛집 등록은 OWNER · ADMIN 만 (버튼 숨김과 별개로 서버에서 확인)
+        if (loginMember == null
+                || (loginMember.getRole() != Role.OWNER && loginMember.getRole() != Role.ADMIN)) {
+            throw new AccessDeniedException("맛집 등록 권한이 없습니다.");   // → 403
+        }
         // [1단계] Restaurant 엔티티 객체 생성 (빌더 패턴 사용)
         // 빌더 패턴: .속성명(값) 형태로 가독성 좋게 객체를 생성하는 디자인 패턴
         // [추가]2026.11.12권성애 등록할 때만 필수: 소개글 · 대표메뉴 · 영업시간 (수정할 때는 선택)
