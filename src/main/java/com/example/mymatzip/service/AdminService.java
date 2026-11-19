@@ -134,7 +134,7 @@ public class AdminService {
     }
 
     // ── 회원 역할 변경 ──────────────────────────────────────────
-    // 동작: 특정 회원의 역할(Role)을 변경합니다 (USER ↔ ADMIN)
+    // 동작: 특정 회원의 역할(Role)을 변경합니다 (USER ↔ OWNER ↔ ADMIN)
     // 매개변수: memberId — 변경할 회원의 ID, role — 새로운 역할
     // @Transactional: DB에 데이터를 "수정"하므로 쓰기 가능 트랜잭션 필요
     @Transactional
@@ -142,6 +142,14 @@ public class AdminService {
         // 회원 조회 — 없으면 예외 발생
         Member member = memberRepository.findById(memberId)
                 .orElseThrow(() -> new IllegalArgumentException("회원을 찾을 수 없습니다."));
+
+        // 관리자 기본 계정 보호
+        if ("admin@test.com".equalsIgnoreCase(member.getEmail())) {
+            throw new IllegalArgumentException(
+                    "기본 관리자 계정은 역할을 변경할 수 없습니다."
+            );
+        }
+
 
         // 역할 변경 — Member 엔티티에 changeRole 메서드가 없으므로
         // JPA의 변경 감지(Dirty Checking)를 위해 직접 접근

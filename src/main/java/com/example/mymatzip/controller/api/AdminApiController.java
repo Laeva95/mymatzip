@@ -110,8 +110,8 @@ public class AdminApiController {
 
     // ── 회원 역할 변경 ──────────────────────────────────────────
     // URL: PUT /api/admin/members/{id}/role
-    // 동작: 특정 회원의 역할(USER ↔ ADMIN)을 변경합니다.
-    // 요청 body 예시: {"role": "ADMIN"}
+    // 동작: 특정 회원의 역할(USER, OWNER, ADMIN)을 변경합니다.
+    // 요청 body 예시: {"role": "OWNER"}
     @PutMapping("/members/{id}/role")
     public ResponseEntity<Map<String, Object>> changeRole(
             @LoginMember Member loginMember,
