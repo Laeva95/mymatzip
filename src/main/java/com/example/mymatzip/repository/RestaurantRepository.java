@@ -153,8 +153,8 @@ public interface RestaurantRepository extends JpaRepository<Restaurant, Long> {
     // [추가]2026.11.11권성애 (수정: deletedAt IS NULL 조건 추가 — OR 묶음을 괄호로 감싸야 주소 검색에도 조건이 적용됨)
     @Query("SELECT r FROM Restaurant r " +                                          // Restaurant 엔티티에서 r이라는 별명으로 조회
            "WHERE r.deletedAt IS NULL " +                                           // [추가]2026.11.11권성애 삭제 안 된 맛집만
-           "AND (LOWER(r.name) LIKE LOWER(CONCAT('%', :keyword, '%')) " +           // 이름에 키워드가 포함되거나 (대소문자 무시)
-           "OR LOWER(r.address) LIKE LOWER(CONCAT('%', :keyword, '%')))")           // 주소에 키워드가 포함된 것을 찾음 (대소문자 무시)
+           "AND LOWER(r.name) LIKE LOWER(CONCAT('%', :keyword, '%')) " )          // 이름에 키워드가 포함되거나 (대소문자 무시)
+           //"OR LOWER(r.address) LIKE LOWER(CONCAT('%', :keyword, '%')))")           // 주소에 키워드가 포함된 것을 찾음 (대소문자 무시)
     List<Restaurant> searchByKeyword(@Param("keyword") String keyword);             // @Param으로 :keyword에 실제 값을 바인딩
 
     // ──────────────────────────────────────────────────────
