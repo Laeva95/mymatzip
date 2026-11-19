@@ -168,11 +168,28 @@ public class AdminService {
     // 매개변수: id — 삭제할 리뷰의 고유번호
     @Transactional
     public void deleteReview(Long id) {
-        // 리뷰 존재 확인 — 없으면 예외 발생
-        if (!reviewRepository.existsById(id)) {
-            throw new IllegalArgumentException("리뷰를 찾을 수 없습니다.");
-        }
-        reviewRepository.deleteById(id);
+        // 리뷰 조회
+        Review review = reviewRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("리뷰를 찾을 수 없습니다."));
+
+        // 해당 맛집의 기존 AI 요약 초기화
+        review.getRestaurant().clearAiSummary();
+
+        // 리뷰 삭제
+        reviewRepository.delete(review);
+    }
+
+    // ── [추가] 리뷰 신고 기록 삭제 ──────────────────────────────
+    // 동작: 리뷰는 그대로 두고 신고 표시(reported)만 해제합니다.
+    //       → "신고된 리뷰" 목록에서만 사라지고, 맛집 페이지의 리뷰는 유지됩니다.
+    // 매개변수: id — 신고 기록을 지울 리뷰의 고유번호
+    @Transactional
+    public void clearReviewReport(Long id) {
+        Review review = reviewRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("리뷰를 찾을 수 없습니다."));
+
+        // JPA 변경 감지로 트랜잭션 종료 시 UPDATE 됩니다.
+        review.clearReport();
     }
 
     // ── 회원 삭제 ───────────────────────────────────────────────

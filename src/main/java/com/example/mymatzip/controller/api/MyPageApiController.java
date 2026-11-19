@@ -138,7 +138,7 @@ public class MyPageApiController {
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
 
         // DB에서 내가 작성한 리뷰 조회
-        Page<Review> reviewPage = reviewRepository.findByMemberId(loginMember.getId(), pageable);
+        Page<Review> reviewPage = reviewRepository.findByMemberIdAndRestaurant_DeletedAtIsNull(loginMember.getId(), pageable);
 
         // 날짜 포맷터
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
@@ -175,8 +175,8 @@ public class MyPageApiController {
 
         // 각 항목의 개수를 DB에서 조회
         long restaurantCount = restaurantRepository.countByMemberIdAndDeletedAtIsNull(loginMember.getId());
-        long reviewCount = reviewRepository.countByMemberId(loginMember.getId());
-        long wishlistCount = wishlistRepository.countByMemberId(loginMember.getId());
+        long reviewCount = reviewRepository.countByMemberIdAndRestaurant_DeletedAtIsNull(loginMember.getId());
+        long wishlistCount = wishlistRepository.countByMemberIdAndRestaurant_DeletedAtIsNull(loginMember.getId());
 
         // 응답 데이터 구성
         Map<String, Object> response = new HashMap<>();
@@ -272,4 +272,43 @@ public class MyPageApiController {
         SecurityContextHolder.setContext(context);
         new HttpSessionSecurityContextRepository().saveContext(context, request, response);
     }
+
+    // ── [11/16 추가] 회원 탈퇴 ─────────────────────────────────────
+    // URL : DELETE /api/mypage/withdraw
+    // 동작 : 비밀번호 확인 후(소셜 회원은 제외) DB에서 회원을 삭제하고 로그아웃(세션 무효화) 처리
+    @DeleteMapping("/withdraw")
+    public ResponseEntity<Map<String, String>> withdraw(
+            @LoginMember Member loginMember,
+            @RequestBody(required = false) Map<String, String> body,
+            HttpServletRequest request) {
+
+        // 1. 일반 가입 회원(provider가 null)인 경우 비밀번호 확인 필수
+        if (loginMember.getProvider() == null) {
+            String password = (body != null) ? body.get("password") : null;
+            if (password == null || password.isEmpty()) {
+                return ResponseEntity.badRequest()
+                        .body(Map.of("error", "비밀번호를 입력해주세요."));
+            }
+            if (!passwordEncoder.matches(password, loginMember.getPassword())) {
+                return ResponseEntity.badRequest()
+                        .body(Map.of("error", "비밀번호가 일치하지 않습니다."));
+            }
+        }
+
+        // 2. DB에서 회원 삭제
+        memberService.deleteMember(loginMember.getId());
+
+        // 3. 현재 로그인된 세션 무효화 및 시큐리티 인증 정보 삭제 (자동 로그아웃)
+        var session = request.getSession(false);
+        if (session != null) {
+            session.invalidate();
+        }
+        SecurityContextHolder.clearContext();
+
+        return ResponseEntity.ok(Map.of("message", "회원 탈퇴가 완료되었습니다. 그동안 이용해주셔서 감사합니다."));
+    }
+
+
+
+
 }

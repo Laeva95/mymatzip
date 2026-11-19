@@ -54,7 +54,9 @@
                 <!--/* th:block : 화면에 태그를 남기지 않고 묶기만 하는 타임리프 전용 태그.
                        th:if="${loginMember != null}" : 로그인한 회원이 있을 때만 안쪽을 만든다. 거짓이면 통째로 빠진다. */-->
                 <th:block th:if="${loginMember != null}">
-                    <li class="nav-item"><a class="nav-link" th:href="@{/restaurants/new}"><i class="bi bi-plus-circle"></i> 맛집 등록</a></li>
+                    <li class="nav-item" th:if="${loginMember.role.name() == 'ADMIN' or loginMember.role.name() == 'OWNER'}">
+                        <a class="nav-link" th:href="@{/restaurants/new}"><i class="bi bi-plus-circle"></i> 맛집 등록</a>
+                    </li>
                     <li class="nav-item"><a class="nav-link" th:href="@{/wishlists}"><i class="bi bi-heart"></i> 찜 목록</a></li>
                     <li class="nav-item"><a class="nav-link" th:href="@{/mypage}"><i class="bi bi-person"></i> 마이페이지</a></li>
                     <!--/* loginMember.role 은 Member.getRole() 이 돌려주는 Role enum. name() 은 "ADMIN" 같은 이름 문자열 */-->

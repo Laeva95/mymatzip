@@ -285,4 +285,11 @@ public class Review {
     public void report() {
         this.reported = true;
     }
+
+    // [추가] 신고 기록 삭제(해제) 메서드
+    // 관리자 > 리뷰 관리 > "신고된 리뷰"에서 휴지통 버튼을 누르면 호출됩니다.
+    // 리뷰 자체는 그대로 두고 reported 값만 false로 되돌려 신고 목록에서만 빠지게 합니다.
+    public void clearReport() {
+        this.reported = false;
+    }
 }

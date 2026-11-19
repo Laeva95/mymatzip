@@ -221,6 +221,52 @@ public class IssueVerificationTest {
                         .content(requestJson))
                 .andExpect(status().isBadRequest());
     }
+    // [이슈 6-3] 업로드 API(uploadfors3only)가 돌려주는 정상 경로로 사진 리뷰 등록 → 201
+    @Test
+    @DisplayName("[이슈 6-3] 정상 이미지 경로(/api/files/review/UUID.jpg)로 리뷰 등록 시 201 Created 검증")
+    void verifyIssue6_ValidImageUrlIsAccepted() throws Exception {
+        Long restaurantId = (Long) ReflectionTestUtils.getField(restaurant, "id");
+        String validUrl = "/api/files/review/123e4567-e89b-12d3-a456-426614174000.jpg";
+
+        String requestJson = """
+                {
+                    "restaurantId": %d,
+                    "rating": 5,
+                    "content": "정상 이미지 경로 테스트",
+                    "imageUrl": "%s"
+                }
+                """.formatted(restaurantId, validUrl);
+
+        mockMvc.perform(post("/api/reviews")
+                        .with(loginAs(authorMember))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestJson))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.imageUrl").value(validUrl));
+    }
+
+    // [이슈 6-4] 폴더가 없는 옛 형식(/api/files/UUID.jpg)은 거절 → 400 (오늘 버그의 재발 방지)
+    @Test
+    @DisplayName("[이슈 6-4] 폴더 없는 이미지 경로(/api/files/UUID.jpg)는 400 Bad Request 검증")
+    void verifyIssue6_UrlWithoutFolderIsRejected() throws Exception {
+        Long restaurantId = (Long) ReflectionTestUtils.getField(restaurant, "id");
+        String noFolderUrl = "/api/files/123e4567-e89b-12d3-a456-426614174000.jpg";
+
+        String requestJson = """
+                {
+                    "restaurantId": %d,
+                    "rating": 5,
+                    "content": "폴더 없는 경로 테스트",
+                    "imageUrl": "%s"
+                }
+                """.formatted(restaurantId, noFolderUrl);
+
+        mockMvc.perform(post("/api/reviews")
+                        .with(loginAs(authorMember))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestJson))
+                .andExpect(status().isBadRequest());
+    }
 
     // =========================================================================
     // [7번 이슈] 리뷰 목록 API - 페이징 적용 여부 검증

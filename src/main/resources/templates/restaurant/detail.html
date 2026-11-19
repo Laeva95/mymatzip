@@ -134,7 +134,11 @@
             </div>
             <button type="button" id="reviewSubmitBtn" class="btn btn-primary btn-sm" onclick="submitReview()"><i class="bi bi-send"></i> 리뷰 등록</button>
         </div>
-
+        <!-- [추가] 비로그인 회원 안내 -->
+        <div class="alert alert-info py-2"
+             th:if="${loginMember == null}">
+            로그인하면 리뷰를 작성할 수 있습니다.
+        </div>
         <div id="reviewList">
             <!--/* th:each="review : ${reviews}" : List<ReviewResponse> 반복. th:id="'review-' + ${review.id}" */-->
             <div class="border-bottom pb-3 mb-3" th:each="review : ${reviews}" th:id="'review-' + ${review.id}">
@@ -172,7 +176,7 @@
                     <div th:id="'repliesArea-' + ${review.id}" style="display:none;" class="mt-2 ms-4">
                         <div th:id="'repliesList-' + ${review.id}"></div>
                         <div class="input-group input-group-sm mt-2" th:if="${loginMember != null}">
-                            <input type="text" class="form-control" th:id="'replyContent-' + ${review.id}" placeholder="답글을 입력하세요...">
+                            <input type="text" class="form-control" th:id="'replyContent-' + ${review.id}" placeholder="답글을 입력하세요..." maxlength="500">
                             <button type="button" class="btn btn-primary btn-reply-submit" th:attr="data-id=${review.id}"><i class="bi bi-send"></i></button>
                         </div>
                     </div>
@@ -334,7 +338,16 @@ document.querySelectorAll('.btn-reply-toggle').forEach(function (btn) {
 document.querySelectorAll('.btn-reply-submit').forEach(function (btn) {
     btn.addEventListener('click', function () { submitReply(this.getAttribute('data-id')); });
 });
-
+// [추가] Enter 키로 답글 등록
+document.querySelectorAll('input[id^="replyContent-"]').forEach(function (input) {
+    input.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            const reviewId = this.id.substring('replyContent-'.length);
+            submitReply(reviewId);
+        }
+    });
+});  // [추가] forEach 종료
 function loadReplies(reviewId) {
     fetchJson('/api/replies/review/' + reviewId).then(function (r) {
         const container = document.getElementById('repliesList-' + reviewId);

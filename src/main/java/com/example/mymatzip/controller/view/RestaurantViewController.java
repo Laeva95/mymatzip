@@ -189,14 +189,22 @@ public class RestaurantViewController {
         // category가 null이 아니면 (카테고리가 지정된 경우)
         if (category != null) {
             // 해당 카테고리의 맛집만 조회 ([변경]2026.11.12권성애 페이지 단위)
-            result = restaurantService.findByCategory(category, pageable);
+            //result = restaurantService.findByCategory(category, pageable);
+
+            // 해당 카테고리의 맛집만 조회 ([변경]2026.11.12권성애 페이지 단위)
+            // [변경]2026.11.16권성애 N+1 방지 메서드로 변경 (findByCategory → findByCategoryAvoidNPlusOne)
+            result = restaurantService.findByCategoryAvoidNPlusOne(category, pageable);
 
             // 현재 선택된 카테고리를 "selectedCategory"로 Model에 담음
             // 타임리프 화면에서 카테고리 버튼의 활성화 상태를 표시하는 데 사용
             model.addAttribute("selectedCategory", category);
         } else {
             // 카테고리가 지정되지 않은 경우 → 전체 맛집 목록 조회 ([변경]2026.11.12권성애 페이지 단위)
-            result = restaurantService.findAll(pageable);
+            //result = restaurantService.findAll(pageable);
+
+            // 카테고리가 지정되지 않은 경우 → 전체 맛집 목록 조회 ([변경]2026.11.12권성애 페이지 단위)
+            // [변경]2026.11.16권성애 N+1 방지 메서드로 변경 (findAll → findAllAvoidNPlusOne)
+            result = restaurantService.findAllAvoidNPlusOne(pageable);
         }
 
         // [추가]2026.11.12권성애 전체 페이지보다 큰 번호(?page=999) → 안내 후 1페이지로 (맛집이 하나도 없으면 1페이지는 그대로 보여 줌)
