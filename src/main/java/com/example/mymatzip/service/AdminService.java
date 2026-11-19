@@ -134,7 +134,7 @@ public class AdminService {
     }
 
     // ── 회원 역할 변경 ──────────────────────────────────────────
-    // 동작: 특정 회원의 역할(Role)을 변경합니다 (USER ↔ ADMIN)
+    // 동작: 특정 회원의 역할(Role)을 변경합니다 (USER ↔ OWNER ↔ ADMIN)
     // 매개변수: memberId — 변경할 회원의 ID, role — 새로운 역할
     // @Transactional: DB에 데이터를 "수정"하므로 쓰기 가능 트랜잭션 필요
     @Transactional
