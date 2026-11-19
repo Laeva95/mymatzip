@@ -31,7 +31,7 @@ class AiRecommendServiceTest {
 
         // 3. 맛집 후보 준비
         RestaurantService restaurantService = mock(RestaurantService.class);
-        when(restaurantService.findAll()).thenReturn(List.of(
+        when(restaurantService.findAllAvoidNPlusOne()).thenReturn(List.of(
                 mock(RestaurantResponse.class)
         ));
 
