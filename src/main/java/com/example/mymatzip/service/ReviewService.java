@@ -105,6 +105,7 @@ public class ReviewService {
         Review review = reviewRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("리뷰를 찾을 수 없습니다."));
 
+
         if (review.getMember().getId().equals(loginMember.getId())) {
             throw new IllegalArgumentException("본인의 리뷰는 신고할 수 없습니다.");
         }
