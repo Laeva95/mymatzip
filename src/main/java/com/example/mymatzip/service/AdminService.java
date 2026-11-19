@@ -143,6 +143,14 @@ public class AdminService {
         Member member = memberRepository.findById(memberId)
                 .orElseThrow(() -> new IllegalArgumentException("회원을 찾을 수 없습니다."));
 
+        // 관리자 기본 계정 보호
+        if ("admin@test.com".equalsIgnoreCase(member.getEmail())) {
+            throw new IllegalArgumentException(
+                    "기본 관리자 계정은 역할을 변경할 수 없습니다."
+            );
+        }
+
+
         // 역할 변경 — Member 엔티티에 changeRole 메서드가 없으므로
         // JPA의 변경 감지(Dirty Checking)를 위해 직접 접근
         // ★ 다른 에이전트가 Member 엔티티에 changeRole 메서드를 추가할 예정

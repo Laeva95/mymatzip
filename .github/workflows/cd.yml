@@ -60,7 +60,7 @@ jobs:
             aws s3 cp s3://$S3_BUCKET/deploy/my-matzip.jar /home/ubuntu/matzip/my-matzip.jar
             sudo systemctl restart matzip
             for i in $(seq 1 40); do
-              if curl -sf http://localhost:8082/ > /dev/null; then
+              if curl -sf http://localhost:5000/ > /dev/null; then
                 echo "배포 성공"
                 exit 0
               fi
