@@ -21,10 +21,25 @@
           <div id="errorMsg" class="alert alert-danger d-none"></div>
           <div id="successMsg" class="alert alert-success d-none"></div>
           <form id="signupForm">
+            <!-- 이메일 + 인증번호 발송 버튼 [11/19 추가] -->
             <div class="mb-3">
               <label for="email" class="form-label">이메일</label>
-              <input type="email" class="form-control" id="email" placeholder="example@test.com" required>
+              <div class="input-group">
+                <input type="email" class="form-control" id="email" placeholder="example@test.com" required>
+                <button type="button" class="btn btn-outline-primary" id="sendCodeBtn">인증번호 발송</button>
+              </div>
+              <div id="emailAuthMsg" class="form-text"></div>
             </div>
+
+            <!-- 6자리 인증번호 입력 영역 (발송 후 표시) [11/19 추가] -->
+            <div class="mb-3 d-none" id="verifySection">
+              <label for="authCode" class="form-label">인증번호 (6자리)</label>
+              <div class="input-group">
+                <input type="text" class="form-control" id="authCode" placeholder="숫자 6자리 입력" maxlength="6">
+                <button type="button" class="btn btn-outline-success" id="verifyCodeBtn">인증 확인</button>
+              </div>
+            </div>
+
             <div class="mb-3">
               <label for="password" class="form-label">비밀번호</label>
               <input type="password" class="form-control" id="password" placeholder="4~20자" minlength="4" maxlength="20" required>
@@ -33,7 +48,11 @@
               <label for="nickname" class="form-label">닉네임</label>
               <input type="text" class="form-control" id="nickname" placeholder="2~10자" minlength="2" maxlength="10" required>
             </div>
-            <button type="submit" class="btn btn-primary w-100 mb-3"><i class="bi bi-person-plus"></i> 가입하기</button>
+
+            <!-- 이메일 인증 완료 전까지 비활성화 [11/19 추가] -->
+            <button type="submit" id="submitBtn" class="btn btn-primary w-100 mb-3" disabled>
+              <i class="bi bi-person-plus"></i> 가입하기
+            </button>
           </form>
           <div class="text-center">
             <span class="text-muted">이미 계정이 있으신가요?</span>
@@ -46,10 +65,90 @@
 </main>
 <th:block th:replace="~{fragments/layout :: footer}"></th:block>
 <script>
+  const emailInput = document.getElementById('email');
+  const sendCodeBtn = document.getElementById('sendCodeBtn');
+  const verifySection = document.getElementById('verifySection');
+  const authCodeInput = document.getElementById('authCode');
+  const verifyCodeBtn = document.getElementById('verifyCodeBtn');
+  const emailAuthMsg = document.getElementById('emailAuthMsg');
+  const submitBtn = document.getElementById('submitBtn');
+  const errorMsg = document.getElementById('errorMsg');
+  const successMsg = document.getElementById('successMsg');
+
+  // 1. 인증번호 발송 [11/19 추가]
+  sendCodeBtn.addEventListener('click', function () {
+    const email = emailInput.value.trim();
+    if (!email) {
+      emailAuthMsg.className = 'form-text text-danger';
+      emailAuthMsg.textContent = '이메일을 먼저 입력해주세요.';
+      return;
+    }
+
+    sendCodeBtn.disabled = true;
+    sendCodeBtn.textContent = '발송 중...';
+    emailAuthMsg.textContent = '';
+
+    fetchJson('/api/email/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: email })
+    }).then(function (r) {
+      if (r.ok) {
+        verifySection.classList.remove('d-none');
+        emailAuthMsg.className = 'form-text text-primary';
+        emailAuthMsg.textContent = r.body.message || '인증번호가 발송되었습니다. (5분 이내 입력)';
+        sendCodeBtn.textContent = '재발송';
+      } else {
+        emailAuthMsg.className = 'form-text text-danger';
+        emailAuthMsg.textContent = r.body.error || '메일 발송에 실패했습니다.';
+        sendCodeBtn.textContent = '인증번호 발송';
+      }
+      sendCodeBtn.disabled = false;
+    }).catch(function () {
+      emailAuthMsg.className = 'form-text text-danger';
+      emailAuthMsg.textContent = '서버 오류가 발생했습니다.';
+      sendCodeBtn.textContent = '인증번호 발송';
+      sendCodeBtn.disabled = false;
+    });
+  });
+
+  // 2. 인증번호 6자리 확인 [11/19 추가]
+  verifyCodeBtn.addEventListener('click', function () {
+    const email = emailInput.value.trim();
+    const code = authCodeInput.value.trim();
+    if (code.length !== 6) {
+      emailAuthMsg.className = 'form-text text-danger';
+      emailAuthMsg.textContent = '인증번호 6자리를 정확히 입력해주세요.';
+      return;
+    }
+
+    fetchJson('/api/email/verify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: email, code: code })
+    }).then(function (r) {
+      if (r.ok) {
+        emailAuthMsg.className = 'form-text text-success fw-bold';
+        emailAuthMsg.textContent = '이메일 인증이 완료되었습니다.';
+        // 인증 완료 후 이메일·인증번호 수정 방지 및 가입 버튼 활성화
+        emailInput.readOnly = true;
+        authCodeInput.readOnly = true;
+        sendCodeBtn.disabled = true;
+        verifyCodeBtn.disabled = true;
+        submitBtn.disabled = false;
+      } else {
+        emailAuthMsg.className = 'form-text text-danger';
+        emailAuthMsg.textContent = r.body.error || '인증번호가 일치하지 않습니다.';
+      }
+    }).catch(function () {
+      emailAuthMsg.className = 'form-text text-danger';
+      emailAuthMsg.textContent = '서버 오류가 발생했습니다.';
+    });
+  });
+
+  // 3. 회원가입 제출 [11/19 수정]
   document.getElementById('signupForm').addEventListener('submit', function (e) {
     e.preventDefault();
-    const errorMsg = document.getElementById('errorMsg');
-    const successMsg = document.getElementById('successMsg');
     errorMsg.classList.add('d-none');
     successMsg.classList.add('d-none');
     fetchJson('/api/members/signup', {

@@ -153,6 +153,7 @@ public class SecurityConfig {
                                 "/members/signup",          // 회원가입 페이지
                                 "/api/members/login",       // 로그인 API
                                 "/api/members/signup",      // 회원가입 API
+                                "/api/email/**",            // 이메일 인증번호 발송·확인 API [11/19 추가]
                                 "/css/**", "/js/**",        // CSS, JS 파일
                                 "/images/**", "/uploads/**",// 이미지, 업로드 파일
                                 "/error",                   // 에러 페이지
