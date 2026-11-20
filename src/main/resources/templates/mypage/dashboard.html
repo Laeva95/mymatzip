@@ -41,19 +41,87 @@ API (MyPageApiController)
     </div>
 
     <ul class="nav nav-tabs mb-4" role="tablist">
-        <li class="nav-item" role="presentation"><button class="nav-link active" id="restaurants-tab" data-bs-toggle="tab" data-bs-target="#restaurants-pane" type="button" role="tab"><i class="bi bi-shop"></i> 내 맛집</button></li>
-        <li class="nav-item" role="presentation"><button class="nav-link" id="reviews-tab" data-bs-toggle="tab" data-bs-target="#reviews-pane" type="button" role="tab"><i class="bi bi-chat-dots"></i> 내 리뷰</button></li>
-        <li class="nav-item" role="presentation"><button class="nav-link" id="profile-tab" data-bs-toggle="tab" data-bs-target="#profile-pane" type="button" role="tab"><i class="bi bi-gear"></i> 프로필 수정</button></li>
+
+        <!-- 일반 회원(USER)에게는 내 맛집 숨김 -->
+        <li class="nav-item" role="presentation"
+            th:if="${loginMember.role.name() != 'USER'}">
+            <button class="nav-link active"
+                    id="restaurants-tab"
+                    data-bs-toggle="tab"
+                    data-bs-target="#restaurants-pane"
+                    type="button" role="tab">
+                <i class="bi bi-shop"></i> 내 맛집
+            </button>
+        </li>
+
+        <!-- 내 리뷰 -->
+        <li class="nav-item" role="presentation">
+            <button class="nav-link"
+                    th:classappend="${loginMember.role.name() == 'USER'} ? ' active' : ''"
+                    id="reviews-tab"
+                    data-bs-toggle="tab"
+                    data-bs-target="#reviews-pane"
+                    type="button" role="tab">
+                <i class="bi bi-chat-dots"></i> 내 리뷰
+            </button>
+        </li>
+
+        <!-- 찜 목록 -->
+        <li class="nav-item" role="presentation">
+            <button class="nav-link"
+                    id="wishlists-tab"
+                    data-bs-toggle="tab"
+                    data-bs-target="#wishlists-pane"
+                    type="button" role="tab">
+                <i class="bi bi-heart"></i> 찜 목록
+            </button>
+        </li>
+
+        <!-- 프로필 수정 -->
+        <li class="nav-item" role="presentation">
+            <button class="nav-link"
+                    id="profile-tab"
+                    data-bs-toggle="tab"
+                    data-bs-target="#profile-pane"
+                    type="button" role="tab">
+                <i class="bi bi-gear"></i> 프로필 수정
+            </button>
+        </li>
+
     </ul>
 
     <div class="tab-content">
-        <div class="tab-pane fade show active" id="restaurants-pane" role="tabpanel">
+
+        <!-- 내 맛집: USER에게 숨김 -->
+        <div class="tab-pane fade show active"
+             id="restaurants-pane"
+             role="tabpanel"
+             th:if="${loginMember.role.name() != 'USER'}">
+
             <div class="row" id="myRestaurantsList"></div>
-            <nav id="restaurantsPagination" class="mt-3"><ul class="pagination justify-content-center"></ul></nav>
+            <nav id="restaurantsPagination" class="mt-3">
+                <ul class="pagination justify-content-center"></ul>
+            </nav>
         </div>
-        <div class="tab-pane fade" id="reviews-pane" role="tabpanel">
+
+        <!-- 내 리뷰: USER의 기본 활성 탭 -->
+        <div class="tab-pane fade"
+             th:classappend="${loginMember.role.name() == 'USER'} ? ' show active' : ''"
+             id="reviews-pane"
+             role="tabpanel">
+
             <div id="myReviewsList"></div>
-            <nav id="reviewsPagination" class="mt-3"><ul class="pagination justify-content-center"></ul></nav>
+            <nav id="reviewsPagination" class="mt-3">
+                <ul class="pagination justify-content-center"></ul>
+            </nav>
+        </div>
+
+        <!-- 찜 목록 -->
+        <div class="tab-pane fade"
+             id="wishlists-pane"
+             role="tabpanel">
+
+            <div class="row" id="myWishlistsList"></div>
         </div>
         <div class="tab-pane fade" id="profile-pane" role="tabpanel">
             <div class="row justify-content-center"><div class="col-md-6">
@@ -97,9 +165,38 @@ API (MyPageApiController)
 </main>
 <th:block th:replace="~{fragments/layout :: footer}"></th:block>
 <script>
-    document.addEventListener('DOMContentLoaded', function () { loadStats(); loadMyRestaurants(0); });
-    document.getElementById('restaurants-tab').addEventListener('shown.bs.tab', function () { loadMyRestaurants(0); });
-    document.getElementById('reviews-tab').addEventListener('shown.bs.tab', function () { loadMyReviews(0); });
+    // 페이지가 처음 열릴 때 실행
+    document.addEventListener('DOMContentLoaded', function () {
+
+        loadStats();
+
+        // 내 맛집 탭이 존재하는 경우에만 조회
+        if (document.getElementById('restaurants-tab')) {
+            loadMyRestaurants(0);
+        } else {
+            // 일반 회원은 처음부터 내 리뷰 조회
+            loadMyReviews(0);
+        }
+    });
+
+    // 내 맛집 탭 클릭
+    const restaurantsTab = document.getElementById('restaurants-tab');
+
+    if (restaurantsTab) {
+        restaurantsTab.addEventListener('shown.bs.tab', function () {
+            loadMyRestaurants(0);
+        });
+    }
+
+    // 내 리뷰 탭 클릭
+    document.getElementById('reviews-tab').addEventListener('shown.bs.tab', function () {
+        loadMyReviews(0);
+    });
+
+    // 찜 목록 탭 클릭
+    document.getElementById('wishlists-tab').addEventListener('shown.bs.tab', function () {
+        loadMyWishlists();
+    });
 
     function loadStats() {
         fetchJson('/api/mypage/stats').then(function (r) {
@@ -111,6 +208,12 @@ API (MyPageApiController)
     }
 
     function loadMyRestaurants(page) {
+
+        // 일반 회원에게는 내 맛집 기능을 실행하지 않음
+        if (!document.getElementById('restaurants-tab')) {
+            return;
+        }
+
         fetchJson('/api/mypage/restaurants?page=' + page + '&size=6').then(function (r) {
             const container = document.getElementById('myRestaurantsList');
             const content = (r.body && r.body.content) || [];
@@ -148,6 +251,76 @@ API (MyPageApiController)
                     '<small class="text-muted">' + esc(formatDateTime(x.createdAt)) + '</small></div></div>';
             }).join('') + '</div>';
             renderPagination('reviewsPagination', r.body.totalPages, r.body.currentPage, loadMyReviews);
+        });
+    }
+
+    // 찜 목록 조회
+    function loadMyWishlists() {
+        fetchJson('/api/wishlists').then(function (r) {
+            const container = document.getElementById('myWishlistsList');
+
+            if (!r.ok) {
+                container.innerHTML =
+                    '<div class="col-12 text-center py-5">' +
+                    '<p class="text-danger">찜 목록을 불러오지 못했습니다.</p></div>';
+                return;
+            }
+
+            const content = r.body || [];
+
+            if (content.length === 0) {
+                container.innerHTML =
+                    '<div class="col-12 text-center py-5">' +
+                    '<p class="text-muted">' +
+                    '<i class="bi bi-heart"></i> 찜한 맛집이 없습니다.' +
+                    '</p></div>';
+                return;
+            }
+
+            container.innerHTML = content.map(function (x) {
+                const restaurant = x.restaurant;
+
+                return '<div class="col-md-4 mb-3">' +
+                    '<div class="card shadow-sm h-100">' +
+                    '<div class="card-body">' +
+                    '<h6 class="card-title">' +
+                    '<a href="/restaurants/' + Number(restaurant.id) + '">' +
+                    esc(restaurant.name) +
+                    '</a></h6>' +
+                    '<p class="text-muted small">' +
+                    '<i class="bi bi-tag"></i> ' +
+                    esc(restaurant.categoryDisplayName) +
+                    '</p>' +
+                    '<p class="text-muted small">' +
+                    '<i class="bi bi-geo-alt"></i> ' +
+                    esc(restaurant.address) +
+                    '</p>' +
+                    '</div>' +
+                    '<div class="card-footer bg-white">' +
+                    '<button class="btn btn-outline-danger btn-sm" ' +
+                    'onclick="removeMyWishlist(' + Number(restaurant.id) + ')">' +
+                    '<i class="bi bi-heartbreak"></i> 찜 취소' +
+                    '</button>' +
+                    '</div></div></div>';
+            }).join('');
+        });
+    }
+
+    // 찜 취소
+    function removeMyWishlist(restaurantId) {
+        if (!confirm('이 맛집을 찜 목록에서 삭제하시겠습니까?')) {
+            return;
+        }
+
+        fetchJson('/api/wishlists/' + restaurantId, {
+            method: 'DELETE'
+        }).then(function (r) {
+            if (r.ok) {
+                loadMyWishlists();
+                loadStats();
+            } else {
+                alert(r.body.error || '찜 취소에 실패했습니다.');
+            }
         });
     }
 
