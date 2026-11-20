@@ -270,7 +270,11 @@ public class RestaurantViewController {
         // ── 2단계: 해당 맛집의 리뷰 목록을 Model에 담기 ─────
         // reviewService.findByRestaurantId(id): 이 맛집에 달린 모든 리뷰 조회
         // "reviews"로 Model에 담음 → 타임리프 화면에서 ${reviews}로 접근
-        model.addAttribute("reviews", reviewService.findByRestaurantId(id));
+        // [수정] 로그인 회원의 도움돼요 여부 포함-정범석
+        model.addAttribute("reviews", reviewService.findByRestaurantId(id, loginMember));
+        // C담당[추가] 맛집별 인기 리뷰 키워드
+        model.addAttribute("popularReviewKeywords",
+                reviewService.getPopularKeywords(id));
 
         // ── 3단계: 평균 별점을 Model에 담기 ─────────────────
         // reviewService.getAverageRating(id): 이 맛집의 리뷰 평균 별점 계산

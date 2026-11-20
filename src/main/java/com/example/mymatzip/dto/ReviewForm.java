@@ -4,6 +4,8 @@ import jakarta.validation.constraints.*;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.util.List;
+
 @Getter
 @Setter
 public class ReviewForm {
@@ -35,4 +37,8 @@ public class ReviewForm {
             message = "올바른 이미지 경로 형식이 아닙니다."
     )
     private String imageUrl;
+
+    // [추가] 리뷰 키워드 태그 (최대 3개)
+    @Size(max = 3, message = "키워드는 최대 3개까지 선택할 수 있습니다.")
+    private List<String> keywordTags;
 }
