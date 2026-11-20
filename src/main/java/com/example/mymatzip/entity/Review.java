@@ -215,6 +215,14 @@ public class Review {
     @Column(nullable = false)
     private boolean reported = false;
 
+    // AI가 스팸으로 판정해 관리자 검토 목록에 자동 신고했는지 여부
+    @Column(nullable = false)
+    private boolean aiSpam = false;
+
+    // 관리자 화면에서 AI 판정 근거를 확인할 수 있도록 저장
+    @Column(length = 500)
+    private String aiSpamReason;
+
     // ──────────────────────────────────────────────────────────
     // 생성자(Constructor) 영역
     // ──────────────────────────────────────────────────────────
@@ -286,10 +294,19 @@ public class Review {
         this.reported = true;
     }
 
+    // AI 스팸 판정 시 기존 신고 큐를 재사용해 관리자에게 자동 신고
+    public void reportAsSpam(String reason) {
+        this.reported = true;
+        this.aiSpam = true;
+        this.aiSpamReason = reason;
+    }
+
     // [추가] 신고 기록 삭제(해제) 메서드
     // 관리자 > 리뷰 관리 > "신고된 리뷰"에서 휴지통 버튼을 누르면 호출됩니다.
     // 리뷰 자체는 그대로 두고 reported 값만 false로 되돌려 신고 목록에서만 빠지게 합니다.
     public void clearReport() {
         this.reported = false;
+        this.aiSpam = false;
+        this.aiSpamReason = null;
     }
 }

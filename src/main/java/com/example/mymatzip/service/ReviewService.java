@@ -9,7 +9,7 @@ import com.example.mymatzip.entity.Review;
 import com.example.mymatzip.entity.Role;
 import com.example.mymatzip.repository.RestaurantRepository;
 import com.example.mymatzip.repository.ReviewRepository;
-import com.example.mymatzip.service.FileService;
+import com.example.mymatzip.service.ai.AiReviewSpamDetectionService;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -28,6 +28,7 @@ public class ReviewService {
     private final ReviewRepository reviewRepository;
     private final RestaurantRepository restaurantRepository;
     private final FileService fileService;
+    private final AiReviewSpamDetectionService aiReviewSpamDetectionService;
 
     public List<ReviewResponse> findByRestaurantId(Long restaurantId) {
         return reviewRepository.findByRestaurantIdOrderByCreatedAtDesc(restaurantId).stream()
@@ -62,6 +63,11 @@ public class ReviewService {
                 .restaurant(restaurant)
                 .member(loginMember)
                 .build();
+
+        AiReviewSpamDetectionService.Result spamResult = aiReviewSpamDetectionService.detect(form.getContent());
+        if (spamResult.spam()) {
+            review.reportAsSpam(spamResult.reason());
+        }
 
         restaurant.clearAiSummary();
 
