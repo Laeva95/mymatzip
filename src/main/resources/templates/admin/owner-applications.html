@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<!--/*
+[admin/owner-applications.html] 식당 사장 신청 심사 (관리자)
+컨트롤러: OwnerApplicationViewController.adminListPage() (GET /admin/owner-applications)
+API: GET  /api/admin/owner-applications?status=PENDING|APPROVED|REJECTED&page=0&size=10
+     POST /api/admin/owner-applications/{id}/approve
+     POST /api/admin/owner-applications/{id}/reject  { reason }
+화면 구성은 admin/reviews.html 과 같은 탭 방식 (심사 대기 / 승인 / 반려)
+목록에서는 주소·남긴 말·반려 사유를 한 줄 말줄임으로 보여주고, 행을 클릭하면 바로 아래에 전체 내용이 펼쳐짐
+*/-->
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('사장 신청 심사')}"></head>
+<body>
+<nav th:replace="~{fragments/layout :: header}"></nav>
+<main class="container mb-5">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="bi bi-person-badge"></i> 사장 신청 심사</h2>
+        <a th:href="@{/admin}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left"></i> 대시보드</a>
+    </div>
+    <div class="btn-group mb-3" role="group">
+        <button type="button" id="tabPENDING" class="btn btn-sm" onclick="loadApplications('PENDING')">
+            심사 대기 <span class="badge bg-danger d-none" id="pendingCount"></span></button>
+        <button type="button" id="tabAPPROVED" class="btn btn-sm" onclick="loadApplications('APPROVED')">승인</button>
+        <button type="button" id="tabREJECTED" class="btn btn-sm" onclick="loadApplications('REJECTED')">반려</button>
+    </div>
+    <div class="card shadow-sm"><div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle">
+                <thead class="table-light"><tr>
+                    <th>ID</th><th>신청자</th><th>가게</th><th>연락처</th><th>사업자번호</th><th>신청일</th>
+                    <th id="lastColHeader">관리</th>
+                </tr></thead>
+                <tbody id="applicationTableBody"><tr><td colspan="7" class="text-center">로딩 중...</td></tr></tbody>
+            </table>
+        </div>
+        <nav id="applicationsPagination" class="mt-3"><ul class="pagination justify-content-center"></ul></nav>
+    </div></div>
+</main>
+<th:block th:replace="~{fragments/layout :: footer}"></th:block>
+<script>
+    const TABS = {
+        PENDING:  { activeClass: 'btn-warning', outlineClass: 'btn-outline-warning', lastCol: '관리',   empty: '심사 대기 중인 신청이 없습니다.' },
+        APPROVED: { activeClass: 'btn-success', outlineClass: 'btn-outline-success', lastCol: '승인일', empty: '승인된 신청이 없습니다.' },
+        REJECTED: { activeClass: 'btn-secondary', outlineClass: 'btn-outline-secondary', lastCol: '반려일 / 사유', empty: '반려된 신청이 없습니다.' }
+    };
+    const pageSize = 10;
+    let currentStatus = 'PENDING';
+    let currentPage = 0;
+
+    document.addEventListener('DOMContentLoaded', function () { loadApplications('PENDING'); });
+
+    // status 를 넘기면 탭 전환(첫 페이지), page 를 넘기면 같은 탭의 다른 페이지
+    function loadApplications(status, page) {
+        if (status !== undefined) { currentStatus = status; currentPage = 0; }
+        if (page !== undefined) { currentPage = page; }
+
+        Object.keys(TABS).forEach(function (key) {
+            document.getElementById('tab' + key).className =
+                'btn btn-sm ' + (key === currentStatus ? TABS[key].activeClass : TABS[key].outlineClass);
+        });
+        document.getElementById('lastColHeader').textContent = TABS[currentStatus].lastCol;
+
+        fetchJson('/api/admin/owner-applications?status=' + currentStatus + '&page=' + currentPage + '&size=' + pageSize)
+            .then(function (r) {
+                const tbody = document.getElementById('applicationTableBody');
+                const data = r.body || {};
+                const list = Array.isArray(data.content) ? data.content : [];
+
+                if (currentStatus === 'PENDING') updatePendingCount(data.totalElements);
+
+                if (!r.ok) {
+                    tbody.innerHTML = '<tr><td colspan="7" class="text-center text-danger">' + esc(data.error || '목록을 불러오지 못했습니다.') + '</td></tr>';
+                    return;
+                }
+                if (list.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">' + TABS[currentStatus].empty + '</td></tr>';
+                    document.getElementById('applicationsPagination').querySelector('ul').innerHTML = '';
+                    return;
+                }
+                tbody.innerHTML = list.map(rowHtml).join('');
+                renderPagination('applicationsPagination', data.totalPages, data.currentPage, function (p) {
+                    loadApplications(undefined, p);
+                });
+            });
+    }
+
+    // 신청 1건 = 요약 행 + (처음엔 숨겨진) 상세 행
+    //   요약 행: 주소·남긴 말·반려 사유는 한 줄 말줄임(text-truncate)으로 짧게
+    //   상세 행: 요약 행을 클릭하면 바로 아래에 펼쳐져 전체 내용을 보여줌 (줄바꿈 유지, 긴 단어도 줄바꿈)
+    function rowHtml(a) {
+        const id = Number(a.id);
+        let lastCol;
+        if (a.status === 'PENDING') {
+            // 버튼 클릭이 행 클릭(펼치기)으로 번지지 않도록 stopPropagation
+            lastCol = '<button class="btn btn-success btn-sm me-1" onclick="event.stopPropagation(); approve(' + id + ')"><i class="bi bi-check-lg"></i> 승인</button>' +
+                      '<button class="btn btn-outline-danger btn-sm" onclick="event.stopPropagation(); reject(' + id + ')"><i class="bi bi-x-lg"></i> 반려</button>';
+        } else if (a.status === 'REJECTED') {
+            lastCol = esc(formatDateTime(a.reviewedAt)) +
+                '<div class="small text-muted text-truncate" style="max-width:200px;">' + esc(a.rejectReason) + '</div>';
+        } else {
+            lastCol = esc(formatDateTime(a.reviewedAt));
+        }
+
+        const summaryRow = '<tr style="cursor:pointer;" onclick="toggleDetail(' + id + ')" title="클릭하면 상세 내용을 펼칩니다">' +
+            '<td class="text-nowrap"><i class="bi bi-chevron-right text-muted" id="chevron-' + id + '"></i> ' + id + '</td>' +
+            '<td>' + esc(a.memberNickname) + '<div class="small text-muted">' + esc(a.memberEmail) + '</div></td>' +
+            '<td><b>' + esc(a.storeName) + '</b>' +
+                '<div class="small text-muted text-truncate" style="max-width:260px;">' + esc(a.address) + '</div>' +
+                (a.message ? '<div class="small mt-1 text-truncate" style="max-width:260px;"><i class="bi bi-chat-left-text"></i> ' + esc(a.message) + '</div>' : '') +
+            '</td>' +
+            '<td class="text-nowrap">' + esc(a.phone) + '</td>' +
+            '<td class="text-nowrap">' + esc(a.businessNumber) + '</td>' +
+            '<td class="text-nowrap">' + esc(formatDateTime(a.createdAt)) + '</td>' +
+            '<td class="text-nowrap">' + lastCol + '</td></tr>';
+
+        return summaryRow + detailRowHtml(a, id);
+    }
+
+    function detailRowHtml(a, id) {
+        // pre-line: 입력한 줄바꿈(Enter)을 그대로 표시, text-break: 띄어쓰기 없는 긴 글자도 칸 안에서 줄바꿈
+        const textStyle = ' class="col-sm-10 text-break" style="white-space:pre-line;"';
+        let html = '<dl class="row mb-0 small">' +
+            '<dt class="col-sm-2 text-muted">가게 주소</dt><dd' + textStyle + '>' + esc(a.address) + '</dd>' +
+            '<dt class="col-sm-2 text-muted">남긴 말</dt><dd' + textStyle + '>' + (a.message ? esc(a.message) : '<span class="text-muted">없음</span>') + '</dd>';
+        if (a.status === 'REJECTED') {
+            html += '<dt class="col-sm-2 text-muted">반려 사유</dt><dd' + textStyle + '>' + esc(a.rejectReason) + '</dd>';
+        }
+        if (a.status !== 'PENDING') {
+            html += '<dt class="col-sm-2 text-muted">처리일</dt><dd class="col-sm-10">' + esc(formatDateTime(a.reviewedAt)) + '</dd>';
+        }
+        html += '</dl>';
+        return '<tr id="detail-' + id + '" class="d-none"><td colspan="7" class="bg-light px-4 py-3">' + html + '</td></tr>';
+    }
+
+    // 요약 행 클릭 → 상세 행 열기/닫기 + 화살표 아이콘 방향 전환
+    function toggleDetail(id) {
+        const detail = document.getElementById('detail-' + id);
+        const chevron = document.getElementById('chevron-' + id);
+        const opened = detail.classList.toggle('d-none') === false;
+        chevron.className = 'bi text-muted ' + (opened ? 'bi-chevron-down' : 'bi-chevron-right');
+    }
+
+    function updatePendingCount(count) {
+        const badge = document.getElementById('pendingCount');
+        badge.textContent = count || '';
+        badge.classList.toggle('d-none', !count);
+    }
+
+    function approve(id) {
+        if (!confirm('이 신청을 승인하시겠습니까?\n신청자의 역할이 식당 사장(OWNER)으로 변경됩니다.')) return;
+        fetchJson('/api/admin/owner-applications/' + id + '/approve', { method: 'POST' }).then(function (r) {
+            alert(r.body.message || r.body.error || '처리되었습니다.');
+            loadApplications(); // 성공이든 409(이미 처리됨)든 최신 목록으로 다시 그림
+        });
+    }
+
+    function reject(id) {
+        const reason = prompt('반려 사유를 입력해주세요. (신청자에게 표시됩니다, 500자 이내)');
+        if (reason === null) return;        // 취소
+        if (!reason.trim()) { alert('반려 사유를 입력해주세요.'); return; }
+        fetchJson('/api/admin/owner-applications/' + id + '/reject', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reason: reason.trim() })
+        }).then(function (r) {
+            alert(r.body.message || r.body.error || '처리되었습니다.');
+            if (r.ok || r.status === 409) loadApplications();
+        });
+    }
+</script>
+</body>
+</html>

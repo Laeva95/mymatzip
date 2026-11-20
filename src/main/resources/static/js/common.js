@@ -112,9 +112,15 @@ function renderPagination(navId, totalPages, currentPage, loadFunction) {
 }
 
 
-/* fetch 결과를 { ok, status, body } 로 묶어 돌려준다. 응답이 JSON 이 아니어도 오류 없이 처리 */
+/* fetch 결과를 { ok, status, body } 로 묶어 돌려준다. 응답이 JSON 이 아니어도 오류 없이 처리
+   세션이 끊긴 상태로 API 를 부르면 Spring Security 가 /members/login 으로 redirect 하고,
+   fetch 는 그 로그인 화면 HTML 을 200 으로 받는다. 이걸 성공으로 착각하지 않도록
+   { ok: false, status: 401 } 로 바꿔서 돌려준다. (wishlist-heart.js 의 request() 와 같은 방식) */
 function fetchJson(url, options) {
     return fetch(url, options).then(function (res) {
+        if (res.redirected && new URL(res.url).pathname === '/members/login') {
+            return { ok: false, status: 401, body: { error: '로그인이 만료되었습니다. 다시 로그인해주세요.' } };
+        }
         return res.text().then(function (text) {
             let body = {};
             try { body = text ? JSON.parse(text) : {}; } catch (e) { body = {}; }

@@ -57,6 +57,10 @@
                     <li class="nav-item" th:if="${loginMember.role.name() == 'ADMIN' or loginMember.role.name() == 'OWNER'}">
                         <a class="nav-link" th:href="@{/restaurants/new}"><i class="bi bi-plus-circle"></i> 맛집 등록</a>
                     </li>
+                    <!--/* 일반 회원(USER)에게만 보이는 식당 사장 권한 신청 메뉴 → OwnerApplicationViewController (GET /owner/apply) */-->
+                    <li class="nav-item" th:if="${loginMember.role.name() == 'USER'}">
+                        <a class="nav-link" th:href="@{/owner/apply}"><i class="bi bi-person-badge"></i> 사장 신청</a>
+                    </li>
                     <li class="nav-item"><a class="nav-link" th:href="@{/mypage}"><i class="bi bi-person"></i> 마이페이지</a></li>
                     <!--/* loginMember.role 은 Member.getRole() 이 돌려주는 Role enum. name() 은 "ADMIN" 같은 이름 문자열 */-->
                     <li class="nav-item" th:if="${loginMember.role.name() == 'ADMIN'}">
