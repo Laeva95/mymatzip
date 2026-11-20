@@ -250,6 +250,9 @@ public class AdminApiController {
                     map.put("restaurantName", r.getRestaurant().getName());
                     map.put("createdAt", r.getCreatedAt().format(formatter));
                     map.put("reported", r.isReported());
+                    // 추가된 부분-정범석
+                    map.put("aiSpam", r.isAiSpam());
+                    map.put("aiSpamReason", r.getAiSpamReason());
                     return map;
                 })
                 .toList();
