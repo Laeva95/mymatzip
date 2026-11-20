@@ -134,13 +134,22 @@
             </div>
             <button type="button" id="reviewSubmitBtn" class="btn btn-primary btn-sm" onclick="submitReview()"><i class="bi bi-send"></i> 리뷰 등록</button>
         </div>
-
-        <!-- [추가] 가게 주인에게 보이는 안내 (본인 가게에는 리뷰 작성 불가) -->
+        <!-- [수정] 비로그인 회원 안내: 무엇을 할 수 있는지 + 로그인 버튼 (C 리뷰) -->
+        <div class="alert alert-info d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4"
+             th:if="${loginMember == null}">
+            <div>
+                <i class="bi bi-info-circle"></i>
+                <strong>로그인하면 리뷰와 별점을 남길 수 있어요.</strong>
+                <div class="small text-muted">리뷰 작성 · 답글 · 신고는 로그인한 회원만 이용할 수 있습니다.</div>
+            </div>
+            <a th:href="@{/login}" class="btn btn-primary btn-sm"><i class="bi bi-box-arrow-in-right"></i> 로그인하기</a>
+        </div>
+        <!-- [추가] 가게 주인에게 보이는 안내 -->
         <div class="alert alert-secondary mb-4" th:if="${loginMember != null and loginMember.nickname == restaurant.memberNickname}">
             본인 가게에는 리뷰를 작성할 수 없습니다.
         </div>
-
         <div id="reviewList">
+
             <!--/* th:each="review : ${reviews}" : List<ReviewResponse> 반복. th:id="'review-' + ${review.id}" */-->
             <div class="border-bottom pb-3 mb-3" th:each="review : ${reviews}" th:id="'review-' + ${review.id}">
                 <div class="d-flex justify-content-between">
@@ -176,15 +185,20 @@
                     </button>
                     <div th:id="'repliesArea-' + ${review.id}" style="display:none;" class="mt-2 ms-4">
                         <div th:id="'repliesList-' + ${review.id}"></div>
+                        <!-- [추가] 비로그인 답글 안내 (C 리뷰) -->
+                        <p class="small text-muted mt-2 mb-0" th:if="${loginMember == null}">로그인하면 답글을 남길 수 있습니다.</p>
                         <div class="input-group input-group-sm mt-2" th:if="${loginMember != null}">
-                            <input type="text" class="form-control" th:id="'replyContent-' + ${review.id}" placeholder="답글을 입력하세요...">
+                            <input type="text" class="form-control" th:id="'replyContent-' + ${review.id}" placeholder="답글을 입력하세요..." maxlength="500">
                             <button type="button" class="btn btn-primary btn-reply-submit" th:attr="data-id=${review.id}"><i class="bi bi-send"></i></button>
                         </div>
                     </div>
                 </div>
-            </div>
-            <p class="text-muted text-center" th:if="${#lists.isEmpty(reviews)}">아직 리뷰가 없습니다. 첫 리뷰를 남겨보세요!</p>
-        </div>
+
+            <!-- [수정] 비로그인에게는 "남겨보세요" 대신 단순 안내 (C 리뷰) -->
+            <p class="text-muted text-center"
+               th:if="${#lists.isEmpty(reviews) and loginMember != null and loginMember.nickname != restaurant.memberNickname}">아직 리뷰가 없습니다. 첫 리뷰를 남겨보세요!</p>
+            <p class="text-muted text-center"
+               th:if="${#lists.isEmpty(reviews) and (loginMember == null or loginMember.nickname == restaurant.memberNickname)}">아직 리뷰가 없습니다.</p>
     </div>
 </div>
 
@@ -339,7 +353,16 @@ document.querySelectorAll('.btn-reply-toggle').forEach(function (btn) {
 document.querySelectorAll('.btn-reply-submit').forEach(function (btn) {
     btn.addEventListener('click', function () { submitReply(this.getAttribute('data-id')); });
 });
-
+// [추가] Enter 키로 답글 등록
+document.querySelectorAll('input[id^="replyContent-"]').forEach(function (input) {
+    input.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            const reviewId = this.id.substring('replyContent-'.length);
+            submitReply(reviewId);
+        }
+    });
+});  // [추가] forEach 종료
 function loadReplies(reviewId) {
     fetchJson('/api/replies/review/' + reviewId).then(function (r) {
         const container = document.getElementById('repliesList-' + reviewId);

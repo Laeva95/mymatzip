@@ -51,7 +51,10 @@ public class ReviewService {
 
         Restaurant restaurant = restaurantRepository.findByIdAndDeletedAtIsNull(form.getRestaurantId())
                 .orElseThrow(() -> new EntityNotFoundException("맛집을 찾을 수 없습니다."));
-
+        // [추가] 자기 가게에는 리뷰를 쓸 수 없다
+        if (restaurant.getMember().getId().equals(loginMember.getId())) {
+            throw new AccessDeniedException("본인 가게에는 리뷰를 작성할 수 없습니다.");
+        }
         Review review = Review.builder()
                 .content(form.getContent())
                 .rating(form.getRating())
