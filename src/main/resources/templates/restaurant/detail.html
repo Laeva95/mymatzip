@@ -121,6 +121,60 @@
                 </div>
                 <input type="hidden" id="rating" value="0">
             </div>
+            <!-- [추가] 리뷰 키워드 선택 -->
+            <div class="mb-3">
+                <label class="form-label">리뷰 키워드 (최대 3개)</label>
+
+                <div class="d-flex flex-wrap gap-3">
+                    <label class="form-check">
+                        <input type="checkbox" class="form-check-input review-keyword"
+                               value="음식이 맛있어요">
+                        <span class="form-check-label">음식이 맛있어요</span>
+                    </label>
+
+                    <label class="form-check">
+                        <input type="checkbox" class="form-check-input review-keyword"
+                               value="가성비가 좋아요">
+                        <span class="form-check-label">가성비가 좋아요</span>
+                    </label>
+
+                    <label class="form-check">
+                        <input type="checkbox" class="form-check-input review-keyword"
+                               value="분위기가 좋아요">
+                        <span class="form-check-label">분위기가 좋아요</span>
+                    </label>
+
+                    <label class="form-check">
+                        <input type="checkbox" class="form-check-input review-keyword"
+                               value="친절해요">
+                        <span class="form-check-label">친절해요</span>
+                    </label>
+
+                    <label class="form-check">
+                        <input type="checkbox" class="form-check-input review-keyword"
+                               value="양이 많아요">
+                        <span class="form-check-label">양이 많아요</span>
+                    </label>
+
+                    <label class="form-check">
+                        <input type="checkbox" class="form-check-input review-keyword"
+                               value="매장이 깨끗해요">
+                        <span class="form-check-label">매장이 깨끗해요</span>
+                    </label>
+
+                    <label class="form-check">
+                        <input type="checkbox" class="form-check-input review-keyword"
+                               value="혼밥하기 좋아요">
+                        <span class="form-check-label">혼밥하기 좋아요</span>
+                    </label>
+
+                    <label class="form-check">
+                        <input type="checkbox" class="form-check-input review-keyword"
+                               value="재방문하고 싶어요">
+                        <span class="form-check-label">재방문하고 싶어요</span>
+                    </label>
+                </div>
+            </div>
             <div class="mb-2">
                 <textarea id="reviewContent" class="form-control" rows="3" maxlength="1000" placeholder="맛집 후기를 남겨주세요!"></textarea>
             </div>
@@ -145,13 +199,25 @@
             <a th:href="@{/login}" class="btn btn-primary btn-sm"><i class="bi bi-box-arrow-in-right"></i> 로그인하기</a>
         </div>
         <!-- [추가] 가게 주인에게 보이는 안내 -->
-        <div class="alert alert-secondary mb-4" th:if="${loginMember != null and loginMember.nickname == restaurant.memberNickname}">
-            본인 가게에는 리뷰를 작성할 수 없습니다.
+	        <div class="alert alert-secondary mb-4" th:if="${loginMember != null and loginMember.nickname == restaurant.memberNickname}">
+	            본인 가게에는 리뷰를 작성할 수 없습니다.
+	        </div>
+	        <!-- 리뷰 키워드 검색: 입력·태그 클릭으로 리뷰 목록을 필터링한다. -->
+	        <div id="reviewKeywordSearch" class="mb-3 p-3 border rounded bg-white">
+	            <label for="reviewKeywordSearchInput" class="form-label mb-2">
+	                <i class="bi bi-search"></i> 리뷰 키워드로 찾기
+	            </label>
+	            <div class="input-group input-group-sm">
+	                <input type="search" id="reviewKeywordSearchInput" class="form-control"
+	                       placeholder="예: 음식이 맛있어요" autocomplete="off">
+	                <button type="button" id="reviewKeywordSearchClear" class="btn btn-outline-secondary">전체 보기</button>
+	            </div>
+            <div id="reviewKeywordSearchMessage" class="small text-muted mt-2" aria-live="polite"></div>
         </div>
         <div id="reviewList">
 
             <!--/* th:each="review : ${reviews}" : List<ReviewResponse> 반복. th:id="'review-' + ${review.id}" */-->
-            <div class="border-bottom pb-3 mb-3" th:each="review : ${reviews}" th:id="'review-' + ${review.id}">
+	            <div class="border-bottom pb-3 mb-3 review-item" th:each="review : ${reviews}" th:id="'review-' + ${review.id}">
                 <div class="d-flex justify-content-between">
                     <div>
                         <strong th:text="${review.memberNickname}">닉네임</strong>
@@ -167,15 +233,38 @@
                                 type="button" class="btn btn-outline-danger btn-sm ms-2 btn-review-delete"
                                 th:attr="data-id=${review.id}"><i class="bi bi-trash"></i></button>
                     </div>
+
                 </div>
                 <!--/* 리뷰 내용: th:text 이므로 < > 가 들어 있어도 글자로만 보인다 (XSS 방지) */-->
                 <p class="mt-2 mb-1" style="white-space:pre-line;" th:text="${review.content}">리뷰 내용</p>
+                <!-- [추가] 리뷰 키워드 배지 -->
+                <div class="d-flex flex-wrap gap-2 mb-2"
+                     th:if="${review.keywordTags != null and !review.keywordTags.isEmpty()}">
+	    <span class="badge rounded-pill bg-light text-dark border review-filter-tag"
+	          role="button" tabindex="0" title="이 태그로 리뷰 필터링" onclick="selectReviewTag(this)"
+	          th:each="keyword : ${review.keywordTags}"
+	          th:text="${keyword}">
+        음식이 맛있어요
+    </span>
+                </div>
                 <a th:if="${!#strings.isEmpty(review.imageUrl)}" th:href="${review.imageUrl}" target="_blank" rel="noopener">
                     <img th:src="${review.imageUrl}" alt="리뷰 사진" class="img-thumbnail mb-2"
                          style="max-height:200px;max-width:100%;object-fit:cover;"
                          onerror="this.closest('a').remove();">
                 </a>
                 <div class="mt-2">
+                    <!-- [추가] 도움돼요 버튼 -->
+                    <button th:if="${loginMember != null and loginMember.id != review.memberId}"
+                            type="button"
+                            class="btn btn-sm btn-outline-primary btn-helpful"
+                            th:classappend="${review.helpfulByMe} ? 'active' : ''"
+                            th:attr="data-id=${review.id}, data-helped=${review.helpfulByMe}, aria-pressed=${review.helpfulByMe}"
+                            onclick="toggleHelpful(this)">
+                        <i class="bi" th:classappend="${review.helpfulByMe} ? 'bi-hand-thumbs-up-fill' : 'bi-hand-thumbs-up'"></i>
+                        도움돼요
+                        <span th:id="'helpfulCount-' + ${review.id}"
+                              th:text="${review.helpfulCount}">0</span>
+                    </button>
                     <button type="button" class="btn btn-outline-secondary btn-sm btn-reply-toggle" th:attr="data-id=${review.id}">
                         <i class="bi bi-chat-left-text"></i> <span th:id="'replyToggleText-' + ${review.id}">답글 보기</span>
                     </button>
@@ -183,6 +272,7 @@
                             type="button" class="btn btn-outline-warning btn-sm ms-1 btn-report" th:attr="data-id=${review.id}">
                         <i class="bi bi-flag"></i> 신고
                     </button>
+
                     <div th:id="'repliesArea-' + ${review.id}" style="display:none;" class="mt-2 ms-4">
                         <div th:id="'repliesList-' + ${review.id}"></div>
                         <!-- [추가] 비로그인 답글 안내 (C 리뷰) -->
@@ -215,10 +305,70 @@
        restaurantId  ← RestaurantResponse.getId()
        loginMemberId ← Member.getId() (로그인 안 했으면 null) */-->
 <script th:inline="javascript">
-const restaurantId = /*[[${restaurant.id}]]*/ 0;
-const loginMemberId = /*[[${loginMember != null} ? ${loginMember.id} : null]]*/ null;
+	const restaurantId = /*[[${restaurant.id}]]*/ 0;
+	const loginMemberId = /*[[${loginMember != null} ? ${loginMember.id} : null]]*/ null;
 
-/* ── B 맛집: 삭제 ── */
+	/* ── C 리뷰: 키워드 최대 3개 선택 ── */
+		document.querySelectorAll('.review-keyword').forEach(function (checkbox) {
+		    checkbox.addEventListener('change', function () {
+		        const selected = document.querySelectorAll('.review-keyword:checked');
+		        if (selected.length > 3) {
+		            this.checked = false;
+		            alert('리뷰 키워드는 최대 3개까지 선택할 수 있습니다.');
+		        }
+		    });
+		});
+
+		/* ── C 리뷰: 키워드 검색·태그 클릭 필터 ── */
+		const reviewKeywordSearchInput = document.getElementById('reviewKeywordSearchInput');
+		const reviewKeywordSearchClear = document.getElementById('reviewKeywordSearchClear');
+		const reviewKeywordSearchMessage = document.getElementById('reviewKeywordSearchMessage');
+		function filterReviewsByKeyword(keyword) {
+		    const normalizedKeyword = (keyword || '').trim().toLowerCase();
+		    let visibleCount = 0;
+		    document.querySelectorAll('#reviewList .review-item').forEach(function (review) {
+		        const tags = Array.from(review.querySelectorAll('.review-filter-tag'))
+		            .map(function (tag) { return tag.textContent.trim().toLowerCase(); });
+		        const matched = !normalizedKeyword || tags.some(function (tag) {
+		            return tag.includes(normalizedKeyword);
+		        });
+		        review.classList.toggle('d-none', !matched);
+		        if (matched) visibleCount += 1;
+		    });
+		    if (reviewKeywordSearchMessage) {
+		        reviewKeywordSearchMessage.textContent = normalizedKeyword
+		            ? visibleCount + '개의 리뷰가 검색되었습니다.'
+		            : '태그를 클릭하거나 키워드를 입력해 리뷰를 찾을 수 있습니다.';
+			    }
+			}
+			function selectReviewTag(tag) {
+			    if (!reviewKeywordSearchInput || !tag) return;
+			    reviewKeywordSearchInput.value = tag.textContent.trim();
+			    filterReviewsByKeyword(reviewKeywordSearchInput.value);
+			}
+			if (reviewKeywordSearchInput) {
+		    reviewKeywordSearchInput.addEventListener('input', function () {
+		        filterReviewsByKeyword(this.value);
+		    });
+		}
+		if (reviewKeywordSearchClear) {
+		    reviewKeywordSearchClear.addEventListener('click', function () {
+		        reviewKeywordSearchInput.value = '';
+		        filterReviewsByKeyword('');
+		        reviewKeywordSearchInput.focus();
+		    });
+		}
+			document.addEventListener('keydown', function (event) {
+			    const tag = event.target && event.target.closest
+			        ? event.target.closest('.review-filter-tag') : null;
+		    if (tag && (event.key === 'Enter' || event.key === ' ')) {
+		        event.preventDefault();
+		        tag.click();
+		    }
+		});
+		filterReviewsByKeyword('');
+	
+	/* ── B 맛집: 삭제 ── */
 function deleteRestaurant(btn) {   // [변경]2026.11.12권성애 btn: 누른 삭제 버튼 (요청 중 다시 못 누르게)
     if (!confirm('이 맛집을 삭제하시겠습니까? 삭제하면 목록 · 검색에서 보이지 않습니다.')) return;
     btn.disabled = true;           // [추가]2026.11.12권성애 요청이 끝날 때까지 버튼 막기
@@ -241,6 +391,7 @@ document.querySelectorAll('.star-pick').forEach(function (star) {
         }
     });
 });
+
 
 /* ── C 리뷰: 작성 (POST /api/reviews → ReviewApiController.create) ── */
 /* ── C 리뷰: 사진 선택 (고를 때는 미리보기만, 등록 누를 때 업로드) ── */
@@ -297,17 +448,33 @@ function uploadReviewImage() {
 /* ── C 리뷰: 작성 (사진 업로드 → POST /api/reviews) ── */
 function submitReview() {
     const rating = parseInt(document.getElementById('rating').value);
-    const content = document.getElementById('reviewContent').value.trim();
-    if (rating === 0) { alert('별점을 선택해주세요.'); return; }
-    if (!content) { alert('리뷰 내용을 입력해주세요.'); return; }
+	const content = document.getElementById('reviewContent').value.trim();
+	// [추가] 선택한 리뷰 키워드
+	const keywordTags = Array.from(
+	    document.querySelectorAll('.review-keyword:checked')
+    ).map(function (checkbox) {
+	        return checkbox.value;
+	    });
+	if (rating === 0) { alert('별점을 선택해주세요.'); return; }
+	if (!content) { alert('리뷰 내용을 입력해주세요.'); return; }
+	if (keywordTags.length > 3) {
+	    alert('리뷰 키워드는 최대 3개까지 선택할 수 있습니다.');
+	    return;
+	}
     const btn = document.getElementById('reviewSubmitBtn');
     btn.disabled = true;                      // 업로드·등록 중 중복 클릭 방지
     uploadReviewImage().then(function (url) {
         return fetchJson('/api/reviews', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ content: content, rating: rating, restaurantId: restaurantId, imageUrl: url })
-        });
+// [수정] 리뷰 키워드 전달
+            body: JSON.stringify({
+                content: content,
+                rating: rating,
+                restaurantId: restaurantId,
+                imageUrl: url,
+                keywordTags: keywordTags
+            })        });
     }).then(function (r) {
         if (r.ok) { window.location.reload(); return; }
         alert(r.body.error || '리뷰 등록에 실패했습니다.');
@@ -331,14 +498,61 @@ document.querySelectorAll('.btn-review-delete').forEach(function (btn) {
         });
     });
 });
-document.querySelectorAll('.btn-report').forEach(function (btn) {
+	document.querySelectorAll('.btn-report').forEach(function (btn) {
     btn.addEventListener('click', function () {
         if (!confirm('이 리뷰를 신고하시겠습니까?')) return;
         fetchJson('/api/reviews/' + this.getAttribute('data-id') + '/report', { method: 'POST' })
             .then(function (r) { alert(r.body.message || r.body.error || '처리되었습니다.'); });
     });
-});
-document.querySelectorAll('.btn-reply-toggle').forEach(function (btn) {
+	});
+
+			/* ── C 리뷰: 도움돼요 (POST/DELETE /api/reviews/{id}/helpful) ── */
+			function toggleHelpful(btn) {
+			    if (!btn || btn.disabled) return;
+			    const reviewId = btn.getAttribute('data-id');
+			    const countEl = document.getElementById('helpfulCount-' + reviewId);
+			    const icon = btn.querySelector('i');
+			    if (!reviewId || !countEl || !icon) {
+			        alert('도움돼요 정보를 불러오지 못했습니다. 페이지를 새로고침해주세요.');
+			        return;
+			    }
+
+			    const helped = btn.getAttribute('data-helped') === 'true';
+			    const nextHelped = !helped;
+			    const previousCount = parseInt(countEl.textContent, 10) || 0;
+			    const nextCount = Math.max(0, previousCount + (helped ? -1 : 1));
+
+			    // 서버 응답을 기다리지 않고 즉시 화면에 반응시킨다.
+			    btn.setAttribute('data-helped', String(nextHelped));
+			    btn.setAttribute('aria-pressed', String(nextHelped));
+			    btn.classList.toggle('active', nextHelped);
+			    countEl.textContent = String(nextCount);
+			    icon.className = 'bi ' + (nextHelped ? 'bi-hand-thumbs-up-fill' : 'bi-hand-thumbs-up');
+			    btn.disabled = true;
+			    btn.classList.add('is-loading');
+
+			    Promise.resolve().then(function () {
+			        return fetchJson('/api/reviews/' + reviewId + '/helpful', {
+			            method: helped ? 'DELETE' : 'POST'
+			        });
+			    }).then(function (r) {
+			        if (!r.ok) throw new Error(r.body && r.body.error || '도움돼요 처리에 실패했습니다.');
+			        if (r.body && r.body.helpfulCount != null) countEl.textContent = r.body.helpfulCount;
+			    }).catch(function (e) {
+			        // 실패하면 낙관적 UI 변경을 되돌린다.
+			        btn.setAttribute('data-helped', String(helped));
+			        btn.setAttribute('aria-pressed', String(helped));
+			        btn.classList.toggle('active', helped);
+			        countEl.textContent = String(previousCount);
+			        icon.className = 'bi ' + (helped ? 'bi-hand-thumbs-up-fill' : 'bi-hand-thumbs-up');
+			        alert(e.message || '도움돼요 처리에 실패했습니다.');
+			    }).finally(function () {
+			        btn.disabled = false;
+			        btn.classList.remove('is-loading');
+			    });
+			}
+	
+	document.querySelectorAll('.btn-reply-toggle').forEach(function (btn) {
     btn.addEventListener('click', function () {
         const reviewId = this.getAttribute('data-id');
         const area = document.getElementById('repliesArea-' + reviewId);
