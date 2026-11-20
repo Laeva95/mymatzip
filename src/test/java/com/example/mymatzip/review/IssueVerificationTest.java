@@ -238,7 +238,7 @@ public class IssueVerificationTest {
                 """.formatted(restaurantId, validUrl);
 
         mockMvc.perform(post("/api/reviews")
-                        .with(loginAs(authorMember))
+                        .with(loginAs(otherMember))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(requestJson))
                 .andExpect(status().isCreated())
