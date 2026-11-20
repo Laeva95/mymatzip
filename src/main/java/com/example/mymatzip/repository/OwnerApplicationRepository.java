@@ -1,0 +1,45 @@
+package com.example.mymatzip.repository;
+
+import com.example.mymatzip.entity.Member;
+import com.example.mymatzip.entity.OwnerApplication;
+import com.example.mymatzip.entity.OwnerApplicationStatus;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.EntityGraph;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+import jakarta.persistence.LockModeType;
+
+import java.util.Optional;
+
+// ============================================================
+// [OwnerApplicationRepository.java] 식당 사장 신청 DB 접근
+// ============================================================
+public interface OwnerApplicationRepository extends JpaRepository<OwnerApplication, Long> {
+
+    // 이미 심사 중인 신청이 있는지 (중복 신청 방지)
+    // 예: existsByMemberIdAndStatus(회원ID, PENDING)
+    boolean existsByMemberIdAndStatus(Long memberId, OwnerApplicationStatus status);
+
+    // 내 가장 최근 신청 1건 (신청 페이지에서 "심사 중 / 반려됨" 상태 표시용)
+    Optional<OwnerApplication> findTopByMemberIdOrderByCreatedAtDesc(Long memberId);
+
+    // 관리자 목록: 상태별 페이지 조회. 신청자 닉네임 표시를 위해 member 를 함께 조회 (N+1 방지)
+    @EntityGraph(attributePaths = {"member"})
+    Page<OwnerApplication> findByStatus(OwnerApplicationStatus status, Pageable pageable);
+
+    // 승인/반려 처리용 조회. 행에 쓰기 잠금(SELECT ... FOR UPDATE)을 걸어
+    // 관리자 두 명이 같은 신청을 동시에 승인·반려해도 한 명만 처리되게 함
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select a from OwnerApplication a join fetch a.member where a.id = :id")
+    Optional<OwnerApplication> findByIdForUpdate(@Param("id") Long id);
+
+    // 신청 시 신청자 회원 행에 쓰기 잠금. 같은 회원이 "신청" 버튼을 동시에 두 번 눌러도
+    // 두 번째 요청은 첫 번째가 끝날 때까지 기다린 뒤 "이미 심사 중" 검사에 걸림.
+    // (MemberRepository 는 다른 팀원 파일이라 수정하지 않고 여기에 둠)
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select m from Member m where m.id = :memberId")
+    Optional<Member> findMemberForUpdate(@Param("memberId") Long memberId);
+}
