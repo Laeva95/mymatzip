@@ -7,6 +7,8 @@ API: GET  /api/admin/owner-applications?status=PENDING|APPROVED|REJECTED&page=0&
      POST /api/admin/owner-applications/{id}/reject  { reason }
 화면 구성은 admin/reviews.html 과 같은 탭 방식 (심사 대기 / 승인 / 반려)
 목록에서는 주소·남긴 말·반려 사유를 한 줄 말줄임으로 보여주고, 행을 클릭하면 바로 아래에 전체 내용이 펼쳐짐
+사업자번호 아래 배지: 신청할 때 통과한 국세청 진위확인 결과 (businessStatus, businessVerifiedAt)
+                      시연용 테스트 신청(testApplication)은 노란 "테스트 신청" 배지
 */-->
 <html lang="ko" xmlns:th="http://www.thymeleaf.org">
 <head th:replace="~{fragments/layout :: head('사장 신청 심사')}"></head>
@@ -109,11 +111,22 @@ API: GET  /api/admin/owner-applications?status=PENDING|APPROVED|REJECTED&page=0&
                 (a.message ? '<div class="small mt-1 text-truncate" style="max-width:260px;"><i class="bi bi-chat-left-text"></i> ' + esc(a.message) + '</div>' : '') +
             '</td>' +
             '<td class="text-nowrap">' + esc(a.phone) + '</td>' +
-            '<td class="text-nowrap">' + esc(a.businessNumber) + '</td>' +
+            '<td class="text-nowrap">' + esc(a.businessNumber) + '<div>' + ntsBadge(a) + '</div></td>' +
             '<td class="text-nowrap">' + esc(formatDateTime(a.createdAt)) + '</td>' +
             '<td class="text-nowrap">' + lastCol + '</td></tr>';
 
         return summaryRow + detailRowHtml(a, id);
+    }
+
+    // 국세청 확인 결과 배지 (신청할 때 확인한 결과. 이 기능 전에 들어온 신청은 확인 기록이 없음)
+    function ntsBadge(a) {
+        if (a.testApplication) {
+            return '<span class="badge bg-warning text-dark"><i class="bi bi-cone-striped"></i> 테스트 신청 · 국세청 확인 안 함</span>';
+        }
+        if (!a.businessVerifiedAt) {
+            return '<span class="badge bg-secondary">국세청 확인 전 신청</span>';
+        }
+        return '<span class="badge bg-success"><i class="bi bi-patch-check"></i> 국세청 확인 · ' + esc(a.businessStatus) + '</span>';
     }
 
     function detailRowHtml(a, id) {
@@ -121,7 +134,17 @@ API: GET  /api/admin/owner-applications?status=PENDING|APPROVED|REJECTED&page=0&
         const textStyle = ' class="col-sm-10 text-break" style="white-space:pre-line;"';
         let html = '<dl class="row mb-0 small">' +
             '<dt class="col-sm-2 text-muted">가게 주소</dt><dd' + textStyle + '>' + esc(a.address) + '</dd>' +
-            '<dt class="col-sm-2 text-muted">남긴 말</dt><dd' + textStyle + '>' + (a.message ? esc(a.message) : '<span class="text-muted">없음</span>') + '</dd>';
+            '<dt class="col-sm-2 text-muted">남긴 말</dt><dd' + textStyle + '>' + (a.message ? esc(a.message) : '<span class="text-muted">없음</span>') + '</dd>' +
+            '<dt class="col-sm-2 text-muted">국세청 확인</dt><dd class="col-sm-10">' +
+                (a.testApplication
+                    ? '<span class="text-warning-emphasis fw-bold">시연용 테스트 신청</span> — 국세청 조회 없이 테스트 번호표로 통과했습니다. ' +
+                      '실제 사장 신청이 아니라면 승인 전에 확인해주세요.'
+                    : a.businessVerifiedAt
+                    ?'사업자번호 · 대표자 성명 · 개업일자 일치 / ' + esc(a.businessStatus) +
+                      (a.taxType ? ' / ' + esc(a.taxType) : '') + ' <span class="text-muted">(' + esc(formatDateTime(a.businessVerifiedAt)) + ' 확인)</span>' +
+                      '<div class="text-muted">실제 사장인지는 공공데이터 · 지도 등에 나온 가게 대표번호로 전화해 확인한 뒤 승인해주세요.</div>'
+                    : '<span class="text-muted">이 기능이 생기기 전에 들어온 신청이라 확인 기록이 없습니다.</span>') +
+            '</dd>';
         if (a.status === 'REJECTED') {
             html += '<dt class="col-sm-2 text-muted">반려 사유</dt><dd' + textStyle + '>' + esc(a.rejectReason) + '</dd>';
         }

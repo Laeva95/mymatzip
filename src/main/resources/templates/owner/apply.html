@@ -6,7 +6,11 @@
 컨트롤러: OwnerApplicationViewController.applyPage() (GET /owner/apply) → 넘겨주는 값 없음 (loginMember 만 사용)
 데이터:
   GET  /api/owner-applications/me → { application: 내 가장 최근 신청 또는 null, currentRole: DB 의 현재 역할 }
-  POST /api/owner-applications    → 신청 { storeName, address, phone, businessNumber, message }
+  POST /api/owner-applications    → 신청 { storeName, address, phone, businessNumber, ownerName, openDate, agreeBusinessCheck, message }
+    사업자번호는 화면에서 체크섬을 먼저 확인하고, 서버가 다시 체크섬 + 국세청 진위확인 · 상태조회를 함
+    (대표자 성명 · 개업일자는 국세청 확인에만 쓰고 저장하지 않으므로 재신청할 때 다시 입력)
+    주소: [주소 검색](카카오 우편번호, 키 없음)으로 부산 주소만 고르고 상세 주소를 뒤에 붙여 보냄
+    "테스트 신청" 체크(testMode) → 국세청 대신 테스트 번호표로 결과가 정해짐 (시연용, 배포 서버에서도 동작)
 
 화면 상태 (한 페이지에서 상황에 따라 하나만 보여줌. 역할은 세션이 아닌 DB 의 currentRole 기준)
   세션이 관리자(ADMIN)            → 신청할 필요 없음 안내 (서버에서 바로 결정)
@@ -73,21 +77,69 @@
                         </div>
                         <div class="mb-3">
                             <label for="address" class="form-label">가게 주소 <span class="text-danger">*</span></label>
-                            <input type="text" class="form-control" id="address" maxlength="255" placeholder="부산광역시 ..." required>
+                            <!-- 맛집 등록(restaurant/form.html)과 같은 방식: 직접 입력하지 않고 [주소 검색]으로만 고름 (오타 방지 · 부산 주소만) -->
+                            <div class="input-group">
+                                <input type="text" class="form-control" id="address" required readonly
+                                       placeholder="[주소 검색]을 눌러 부산 주소를 선택하세요">
+                                <button type="button" class="btn btn-outline-secondary" id="addressSearchBtn"><i class="bi bi-search"></i> 주소 검색</button>
+                            </div>
+                            <!-- 상세 주소(층 · 호 등)는 직접 입력 → 신청할 때 주소 뒤에 붙임 -->
+                            <input type="text" class="form-control mt-2" id="addressDetail" maxlength="100" placeholder="상세 주소 (예: 2층 201호, 선택)">
                         </div>
                         <div class="mb-3">
                             <label for="phone" class="form-label">연락처 <span class="text-danger">*</span></label>
                             <input type="tel" class="form-control" id="phone" maxlength="14" placeholder="051-123-4567" required>
                             <div class="form-text">지역번호, 휴대폰, 0507 안심번호, 1588 같은 대표번호 모두 입력할 수 있습니다.</div>
                         </div>
+                        <!-- 시연 · 테스트용: 체크하면 국세청 대신 아래 번호표로 결과가 정해짐 (관리자 화면에 "테스트 신청"으로 표시) -->
+                        <div class="border rounded p-2 mb-3 bg-light">
+                            <div class="form-check mb-0">
+                                <input class="form-check-input" type="checkbox" id="testMode">
+                                <label class="form-check-label small" for="testMode">
+                                    <i class="bi bi-cone-striped text-warning"></i> <b>테스트 신청</b> (시연용 · 국세청 조회 없이 테스트 번호로 결과 확인)
+                                </label>
+                            </div>
+                            <div id="testGuide" class="small mt-2 d-none">
+                                <table class="table table-sm table-bordered bg-white mb-1">
+                                    <thead><tr><th>사업자등록번호</th><th>결과</th></tr></thead>
+                                    <tbody>
+                                    <tr><td>123-45-67891 (그 밖의 올바른 번호)</td><td>✅ 일치 · 계속사업자 → 신청 접수</td></tr>
+                                    <tr><td>111-11-11119</td><td>휴업 → 신청 불가</td></tr>
+                                    <tr><td>222-22-22227</td><td>폐업 → 신청 불가</td></tr>
+                                    <tr><td>333-33-33336</td><td>국세청 정보 불일치 → 신청 불가</td></tr>
+                                    <tr><td>444-44-44444</td><td>국세청 연결 불가 안내</td></tr>
+                                    <tr><td>123-45-67890</td><td>잘못된 번호(체크섬) → 바로 차단</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
                         <div class="mb-3">
                             <label for="businessNumber" class="form-label">사업자등록번호 <span class="text-danger">*</span></label>
                             <input type="text" class="form-control" id="businessNumber" maxlength="12" placeholder="123-45-67890" inputmode="numeric" required>
                             <div class="form-text">숫자만 입력하면 하이픈(-)이 자동으로 들어갑니다.</div>
                         </div>
+                        <!-- 국세청 진위확인용: 사업자등록증에 적힌 그대로 입력해야 일치로 확인됨 (서버에 저장하지 않음) -->
+                        <div class="row g-2 mb-1">
+                            <div class="col-sm-6">
+                                <label for="ownerName" class="form-label">대표자 성명 <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="ownerName" maxlength="50" required>
+                            </div>
+                            <div class="col-sm-6">
+                                <label for="openDate" class="form-label">개업일자 <span class="text-danger">*</span></label>
+                                <input type="date" class="form-control" id="openDate" required>
+                            </div>
+                        </div>
+                        <div class="form-text mb-3">사업자등록증에 적힌 대표자 성명과 개업연월일을 그대로 입력해주세요. 국세청 확인에만 쓰이고 저장되지 않습니다.</div>
                         <div class="mb-3">
                             <label for="message" class="form-label">관리자에게 남기는 말 <span class="text-muted small">(선택)</span></label>
                             <textarea class="form-control" id="message" rows="3" maxlength="1000"></textarea>
+                        </div>
+                        <!-- 테스트 신청이면 외부로 보내지 않으므로 숨김 -->
+                        <div class="form-check mb-3" id="agreeBox">
+                            <input class="form-check-input" type="checkbox" id="agreeBusinessCheck">
+                            <label class="form-check-label small" for="agreeBusinessCheck">
+                                사업자 정보 확인을 위해 사업자등록번호 · 대표자 성명 · 개업일자를 국세청(공공데이터포털)에 조회하는 것에 동의합니다. <span class="text-danger">*</span>
+                            </label>
                         </div>
                         <button type="submit" id="submitBtn" class="btn btn-primary w-100"><i class="bi bi-send"></i> 신청하기</button>
                     </form>
@@ -97,6 +149,9 @@
     </div>
 </main>
 <th:block th:replace="~{fragments/layout :: footer}"></th:block>
+<!-- 카카오(다음) 우편번호 서비스: 키 필요 없음 (맛집 등록 화면과 같은 스크립트) -->
+<script src="https://t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"
+        th:unless="${loginMember.role.name() == 'ADMIN'}"></script>
 <script th:inline="javascript" th:unless="${loginMember.role.name() == 'ADMIN'}">
     // 세션에 저장된 역할 (로그인할 때 값이라 승인 직후에는 아직 USER 일 수 있음)
     const sessionRole = /*[[${loginMember.role.name()}]]*/ 'USER';
@@ -104,7 +159,12 @@
 
     document.addEventListener('DOMContentLoaded', function () {
         loadMyApplication();
+        // 개업일자는 오늘 이후를 고를 수 없게
+        document.getElementById('openDate').max = new Date(Date.now() - new Date().getTimezoneOffset() * 60000)
+            .toISOString().substring(0, 10);
         document.getElementById('businessNumber').addEventListener('input', formatBusinessNumber);
+        document.getElementById('testMode').addEventListener('change', toggleTestMode);
+        document.getElementById('addressSearchBtn').addEventListener('click', openAddressSearch);
         document.getElementById('applyForm').addEventListener('submit', submitApplication);
     });
 
@@ -170,6 +230,8 @@
             ['주소', app.address],
             ['연락처', app.phone],
             ['사업자번호', app.businessNumber],
+            ['국세청 확인', app.testApplication ? '테스트 신청 (국세청 확인 안 함)'
+                : app.businessVerifiedAt ? '확인됨 (' + (app.businessStatus || '') + ')' : '-'],
             ['남긴 말', app.message || '-']
         ];
         document.getElementById('pendingDetail').innerHTML = rows.map(function (row) {
@@ -187,6 +249,50 @@
         e.target.value = v;
     }
 
+    // 주소 검색 창 열기 (카카오 우편번호 서비스)
+    function openAddressSearch() {
+        if (typeof daum === 'undefined' || !daum.Postcode) {
+            alert('주소 검색을 불러오지 못했습니다. 잠시 후 다시 시도해주세요.');
+            return;
+        }
+        new daum.Postcode({ oncomplete: applyAddress }).open();
+    }
+
+    // 고른 주소를 주소 칸에 넣기. 부산 주소만 허용 (맛집 등록과 같은 규칙)
+    //   data.sido : "부산", data.roadAddress : "부산 해운대구 해운대해변로 264"
+    function applyAddress(data) {
+        const errorMsg = document.getElementById('errorMsg');
+        const addressInput = document.getElementById('address');
+        if (data.sido !== '부산') {
+            addressInput.value = '';
+            errorMsg.textContent = '부산 지역 가게만 신청할 수 있습니다.';
+            errorMsg.classList.remove('d-none');
+            return;
+        }
+        errorMsg.classList.add('d-none');
+        const address = data.roadAddress || data.jibunAddress;        // 도로명이 없으면 지번
+        addressInput.value = address.replace(/^부산 /, '부산광역시 '); // 맛집 등록과 같은 표기
+        document.getElementById('addressDetail').focus();
+    }
+
+    // 테스트 신청 체크: 번호표 보이기, 국세청 조회 동의 숨기기
+    function toggleTestMode() {
+        const test = document.getElementById('testMode').checked;
+        document.getElementById('testGuide').classList.toggle('d-none', !test);
+        document.getElementById('agreeBox').classList.toggle('d-none', test);
+    }
+
+    // 사업자등록번호 마지막 자리(검증 숫자) 확인 — 서버 OwnerApplicationService.isValidBusinessNumber() 와 같은 계산
+    function isValidBusinessNumber(value) {
+        const d = value.replace(/-/g, '');
+        if (!/^\d{10}$/.test(d)) return false;
+        const w = [1, 3, 7, 1, 3, 7, 1, 3, 5];
+        let sum = 0;
+        for (let i = 0; i < 9; i++) sum += Number(d[i]) * w[i];
+        sum += Math.floor(Number(d[8]) * 5 / 10);
+        return (10 - sum % 10) % 10 === Number(d[9]);
+    }
+
     function submitApplication(e) {
         e.preventDefault();
         const errorMsg = document.getElementById('errorMsg');
@@ -195,18 +301,34 @@
 
         const data = {
             storeName: document.getElementById('storeName').value.trim(),
-            address: document.getElementById('address').value.trim(),
+            // 검색한 주소 + 상세 주소 (서버 제한 255자)
+            address: (document.getElementById('address').value.trim() + ' ' +
+                      document.getElementById('addressDetail').value.trim()).trim(),
             phone: document.getElementById('phone').value.trim(),
             businessNumber: document.getElementById('businessNumber').value.trim(),
+            ownerName: document.getElementById('ownerName').value.trim(),
+            openDate: document.getElementById('openDate').value,   // yyyy-MM-dd
+            agreeBusinessCheck: document.getElementById('agreeBusinessCheck').checked,
+            testMode: document.getElementById('testMode').checked,
             message: document.getElementById('message').value.trim()
         };
-        if (!data.storeName || !data.address || !data.phone || !data.businessNumber) {
-            errorMsg.textContent = '필수 항목(*)을 모두 입력해주세요.';
+        function fail(msg) {
+            errorMsg.textContent = msg;
             errorMsg.classList.remove('d-none');
-            return;
+        }
+        if (!data.storeName || !data.address || !data.phone || !data.businessNumber || !data.ownerName || !data.openDate) {
+            return fail('필수 항목(*)을 모두 입력해주세요.');
+        }
+        if (!isValidBusinessNumber(data.businessNumber)) {
+            return fail('존재할 수 없는 사업자등록번호입니다. 번호를 다시 확인해주세요.');
+        }
+        if (!data.testMode && !data.agreeBusinessCheck) {
+            return fail('사업자 정보 확인(국세청 조회)에 동의해주세요.');
         }
 
         submitBtn.disabled = true; // 중복 클릭 방지 (서버에서도 막음)
+        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> ' +
+            (data.testMode ? '테스트 확인 중...' : '국세청 확인 중...');
         fetchJson('/api/owner-applications', {
             method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data)
         }).then(function (r) {
@@ -216,6 +338,7 @@
             errorMsg.classList.remove('d-none');
         }).finally(function () {
             submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="bi bi-send"></i> 신청하기';
         });
     }
 </script>
