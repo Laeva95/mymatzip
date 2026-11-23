@@ -59,13 +59,14 @@
 
 <div class="mb-4">
     <!--/* th:classappend : 선택된 카테고리가 없으면 '전체' 버튼을 채운 색(btn-primary)으로 */-->
-    <a th:href="@{/restaurants(sort=${selectedSort})}" class="btn btn-sm me-1 mb-1"
+    <!-- [변경]2026.11.23권성애 sort 추가 — 분류 글자 크기를 정렬과 맞춤 (btn-sm 기본 14px → 16px) -->
+    <a th:href="@{/restaurants(sort=${selectedSort})}" class="btn btn-sm me-1 mb-1" style="font-size: 16px;"
        th:classappend="${selectedCategory == null} ? 'btn-primary' : 'btn-outline-primary'">전체</a>
     <!--/* th:each="cat : ${categories}" : Category enum 6개 반복.
            @{/restaurants(category=${cat})} → /restaurants?category=KOREAN (enum 이름이 들어감)
            ${cat.displayName} → Category.getDisplayName() → "한식" */-->
     <a th:each="cat : ${categories}" th:href="@{/restaurants(category=${cat}, sort=${selectedSort})}"
-       class="btn btn-sm me-1 mb-1"
+       class="btn btn-sm me-1 mb-1" style="font-size: 16px;"
        th:classappend="${selectedCategory == cat} ? 'btn-primary' : 'btn-outline-primary'"
        th:text="${cat.displayName}">한식</a>
 </div>
