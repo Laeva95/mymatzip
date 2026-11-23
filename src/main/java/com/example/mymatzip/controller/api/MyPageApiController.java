@@ -244,6 +244,12 @@ public class MyPageApiController {
                     .body(Map.of("error", "현재 비밀번호가 일치하지 않습니다."));
         }
 
+        // 현재 비밀번호와 새 비밀번호 동일 여부 확인 [11/23 추가]
+        if (currentPassword.equals(newPassword)) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("error", "현재 비밀번호와 동일한 비밀번호로는 변경할 수 없습니다."));
+        }
+
         try {
             // MemberService를 통해 비밀번호 변경
             memberService.updatePassword(loginMember.getId(), passwordEncoder.encode(newPassword));
