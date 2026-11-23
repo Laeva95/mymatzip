@@ -161,9 +161,13 @@ public class RestaurantViewController {
     public String list(@RequestParam(required = false) Category category,
                        @RequestParam(required = false) String page,
                        Model model,
-                       RedirectAttributes redirectAttributes) {
+                       RedirectAttributes redirectAttributes,
+                       // [추가]2026.11.23권성애 sort 추가
+                       @RequestParam(required = false) String sort  ) {
         // ── [추가]2026.11.12권성애 0단계: page 값 검사 ─────────────────────
         // 없으면 1페이지, 숫자가 아니거나 1보다 작으면 → 안내 후 1페이지로 redirect
+        // [추가]2026.11.23권성애 sort 추가 — 없는 값(?sort=abc)은 조용히 최신순
+        String selectedSort = ("rating".equals(sort) || "review".equals(sort) || "wishlist".equals(sort)) ? sort : "latest";
         int pageNumber = 1;
         if (page != null && !page.isBlank()) {
             try {
@@ -173,7 +177,12 @@ public class RestaurantViewController {
             }
         }
         // 1페이지로 돌아갈 주소 (카테고리를 고른 상태면 카테고리는 유지)
-        String firstPageUrl = (category != null) ? "redirect:/restaurants?category=" + category.name() : "redirect:/restaurants";
+        //String firstPageUrl = (category != null) ? "redirect:/restaurants?category=" + category.name() : "redirect:/restaurants";
+
+        // [변경]2026.11.23권성애 sort 추가 — 1페이지로 돌아갈 때 정렬도 유지
+        String firstPageUrl = (category != null)
+                ? "redirect:/restaurants?category=" + category.name() + "&sort=" + selectedSort
+                : "redirect:/restaurants?sort=" + selectedSort;
         if (pageNumber < 1) {
             redirectAttributes.addFlashAttribute("alertMsgNoPage", "없는 페이지입니다. 1페이지로 이동합니다.");
             return firstPageUrl;
@@ -194,8 +203,8 @@ public class RestaurantViewController {
 
             // 해당 카테고리의 맛집만 조회 ([변경]2026.11.12권성애 페이지 단위)
             // [변경]2026.11.16권성애 N+1 방지 메서드로 변경 (findByCategory → findByCategoryAvoidNPlusOne)
-            result = restaurantService.findByCategoryAvoidNPlusOne(category, pageable);
-
+            //result = restaurantService.findByCategoryAvoidNPlusOne(category, pageable);
+            result = restaurantService.findBySort(category, selectedSort, pageable);   // [변경]2026.11.23권성애 sort 추가
             // 현재 선택된 카테고리를 "selectedCategory"로 Model에 담음
             // 타임리프 화면에서 카테고리 버튼의 활성화 상태를 표시하는 데 사용
             model.addAttribute("selectedCategory", category);
@@ -205,7 +214,8 @@ public class RestaurantViewController {
 
             // 카테고리가 지정되지 않은 경우 → 전체 맛집 목록 조회 ([변경]2026.11.12권성애 페이지 단위)
             // [변경]2026.11.16권성애 N+1 방지 메서드로 변경 (findAll → findAllAvoidNPlusOne)
-            result = restaurantService.findAllAvoidNPlusOne(pageable);
+            //result = restaurantService.findAllAvoidNPlusOne(pageable);
+            result = restaurantService.findBySort(category, selectedSort, pageable);   // [변경]2026.11.23권성애 sort 추가
         }
 
         // [추가]2026.11.12권성애 전체 페이지보다 큰 번호(?page=999) → 안내 후 1페이지로 (맛집이 하나도 없으면 1페이지는 그대로 보여 줌)
@@ -236,6 +246,9 @@ public class RestaurantViewController {
         // 타임리프 화면에서 카테고리 필터 버튼들을 생성하는 데 사용
         model.addAttribute("categories", Category.values());
         model.addAttribute("pageBlock", pageBlock);   // [추가]2026.11.19권성애 « » 표시 여부 판단용 (app.restaurant.page-block)
+
+        model.addAttribute("selectedSort", selectedSort);            // [추가]2026.11.23권성애 sort 추가
+        model.addAttribute("totalCount", result.getTotalElements()); // [추가]2026.11.23권성애 sort 추가 — "맛집 N곳"
         // ── 3단계: 타임리프 화면 이름 반환 ─────────────────────────
         // → templates/restaurant/list.html 렌더링
         return "restaurant/list";

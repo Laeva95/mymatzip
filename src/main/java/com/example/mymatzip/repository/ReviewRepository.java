@@ -260,4 +260,18 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
         String getKeyword();
         Long getTagCount();
     }
+
+
+    // [추가]2026.11.23권성애 sort 추가 — 여러 맛집의 평균 별점 + 리뷰 수를 쿼리 1번으로 (카드 표시 · N+1 방지)
+    //   리뷰가 없는 맛집은 결과에 없음 → 서비스에서 별점 null, 리뷰 수 0 으로 처리
+    @Query("SELECT r.restaurant.id AS restaurantId, AVG(r.rating) AS averageRating, COUNT(r) AS reviewCount " +
+            "FROM Review r WHERE r.restaurant.id IN :ids GROUP BY r.restaurant.id")
+    List<RestaurantRatingReviewCount> averageRatingsAndReviewCountsByRestaurantIdsAvoidNPlusOne(@Param("ids") List<Long> ids);
+
+    // [추가]2026.11.23권성애 sort 추가 — 위 쿼리 결과 한 줄 (SELECT 별칭과 getter 이름이 같아야 함)
+    interface RestaurantRatingReviewCount {
+        Long getRestaurantId();
+        Double getAverageRating();
+        Long getReviewCount();
+    }
 }

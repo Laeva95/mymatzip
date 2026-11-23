@@ -295,8 +295,9 @@ public class RestaurantApiController {
         // ResponseEntity.ok(...): 200 OK + 검색 결과 JSON 반환
         //return ResponseEntity.ok(restaurantService.search(keyword));
         // [변경]2026.11.16권성애 N+1 방지 메서드로 변경 (search → searchAvoidNPlusOne)
-        return ResponseEntity.ok(restaurantService.searchAvoidNPlusOne(keyword));
-
+        //return ResponseEntity.ok(restaurantService.searchAvoidNPlusOne(keyword));
+        // [변경]2026.11.23권성애 sort 추가 — 검색 카드에도 리뷰 수 · 찜 수 (searchAvoidNPlusOne → searchWithReviewCountAndWishlist)
+        return ResponseEntity.ok(restaurantService.searchWithReviewCountAndWishlist(keyword));
 
     }
 
