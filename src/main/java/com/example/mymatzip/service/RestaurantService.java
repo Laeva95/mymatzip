@@ -87,7 +87,7 @@ import org.springframework.data.domain.Pageable;
 import java.util.List;
 import java.util.Map;                        // [추가]2026.11.16권성애 N+1 방지: 맛집 id → 평균 별점
 import java.util.stream.Collectors;          // [추가]2026.11.16권성애 N+1 방지: Collectors.toMap
-
+import org.springframework.data.domain.PageRequest;
 
 // ─── 클래스 선언부 ────────────────────────────────────────────
 
@@ -716,5 +716,61 @@ public class RestaurantService {
         return restaurants.stream()
                 .map(r -> RestaurantResponse.from(r, avgMap.get(r.getId())))
                 .toList();
+    }
+
+
+    // [추가]2026.11.23권성애 sort 추가 — 정렬 종류(sort)에 맞는 목록 + 별점 · 리뷰 수 · 찜 수
+    //   sort: latest(기본) · rating · review · wishlist (다른 값은 컨트롤러에서 latest 로 바꿔서 옴)
+    //   페이지당 쿼리: 목록 1 + 개수 1 + 별점 · 리뷰 수 1 + 찜 수 1 = 4번 (맛집 수와 상관없이 고정)
+    public PageResponse<RestaurantResponse> findBySort(Category category, String sort, Pageable pageable) {
+        // @Query 에 ORDER BY 가 있으니 화면에서 온 정렬(createdAt · id)을 빼고 페이지 번호 · 크기만 넘김
+        Pageable pageOnly = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize());
+
+        Page<Restaurant> page;
+        if ("rating".equals(sort)) {
+            page = restaurantRepository.findOrderByRating(category, pageOnly);
+        } else if ("review".equals(sort)) {
+            page = restaurantRepository.findOrderByReview(category, pageOnly);
+        } else if ("wishlist".equals(sort)) {
+            page = restaurantRepository.findOrderByWishlist(category, pageOnly);
+        } else {
+            // 최신순: 기존 메서드 그대로 (화면에서 온 createdAt DESC, id DESC 정렬 사용)
+            page = (category != null)
+                    ? restaurantRepository.findByCategoryAndDeletedAtIsNull(category, pageable)
+                    : restaurantRepository.findAllByDeletedAtIsNull(pageable);
+        }
+        return PageResponse.from(page, listWithReviewCountAndWishlist(page.getContent()));
+    }
+
+    // [추가]2026.11.23권성애 sort 추가 — 맛집 목록 → 응답 목록 (별점 · 리뷰 수 · 찜 수를 각각 쿼리 1번으로)
+    private List<RestaurantResponse> listWithReviewCountAndWishlist(List<Restaurant> restaurants) {
+        if (restaurants.isEmpty()) {
+            return List.of();                                       // IN () 빈 목록 방지
+        }
+        List<Long> ids = restaurants.stream().map(Restaurant::getId).toList();
+
+        // 별점 · 리뷰 수 (리뷰 없는 맛집은 Map 에 없음)
+        Map<Long, ReviewRepository.RestaurantRatingReviewCount> ratingMap =
+                reviewRepository.averageRatingsAndReviewCountsByRestaurantIdsAvoidNPlusOne(ids).stream()
+                        .collect(Collectors.toMap(ReviewRepository.RestaurantRatingReviewCount::getRestaurantId, x -> x));
+
+        // 찜 수 (찜 없는 맛집은 Map 에 없음)
+        Map<Long, Long> wishMap = restaurantRepository.wishlistCountsByRestaurantIdsAvoidNPlusOne(ids).stream()
+                .collect(Collectors.toMap(RestaurantRepository.RestaurantWishlistCount::getRestaurantId,
+                        RestaurantRepository.RestaurantWishlistCount::getWishlistCount));
+
+        return restaurants.stream().map(r -> {
+            ReviewRepository.RestaurantRatingReviewCount rr = ratingMap.get(r.getId());
+            Double avg = (rr != null) ? rr.getAverageRating() : null;   // 리뷰 없음 → null (기존과 같음)
+            Long reviewCount = (rr != null) ? rr.getReviewCount() : 0L;
+            Long wishlistCount = wishMap.getOrDefault(r.getId(), 0L);
+            return RestaurantResponse.withReviewCountAndWishlist(r, avg, reviewCount, wishlistCount);
+        }).toList();
+    }
+
+    // [추가]2026.11.23권성애 sort 추가 — 검색 결과에도 별점 · 리뷰 수 · 찜 수 (기존 searchAvoidNPlusOne 은 그대로)
+    //   쿼리: 검색 1 + 별점 · 리뷰 수 1 + 찜 수 1 = 3번 (결과 수와 상관없이 고정)
+    public List<RestaurantResponse> searchWithReviewCountAndWishlist(String keyword) {
+        return listWithReviewCountAndWishlist(restaurantRepository.searchByKeyword(keyword));
     }
 }
