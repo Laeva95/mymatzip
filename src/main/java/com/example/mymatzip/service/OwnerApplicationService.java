@@ -14,6 +14,9 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.Optional;
 
@@ -41,6 +44,9 @@ public class OwnerApplicationService {
     private static final List<OwnerApplicationStatus> ACTIVE_STATUSES =
             List.of(OwnerApplicationStatus.PENDING, OwnerApplicationStatus.APPROVED);
 
+    // 개업일자 "오늘" 기준 (서버가 UTC 로 돌아도 한국 날짜로 비교)
+    private static final ZoneId SEOUL = ZoneId.of("Asia/Seoul");
+
     private final OwnerApplicationRepository ownerApplicationRepository;
     private final MemberService memberService; // 조회(findById)만 사용, 수정 없음
     private final NtsBusinessApiClient ntsBusinessApiClient;
@@ -62,13 +68,19 @@ public class OwnerApplicationService {
     //   ① 미리 확인(잠금 없음) → ② 국세청 확인 → ③ 잠금 걸고 다시 확인 + 저장(transactionTemplate)
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public OwnerApplication apply(Long memberId, OwnerApplicationForm form) {
-        String businessNumber = form.getBusinessNumber().trim();
+        // 번호는 숫자만 저장 (하이픈 제거). 형식은 OwnerApplicationForm 의 @Pattern 이 이미 확인함
+        //   → 중복 신청 검사도 "1234567891" 하나의 모양으로 비교됨
+        String businessNumber = digitsOnly(form.getBusinessNumber());
+        String phone = digitsOnly(form.getPhone());
         String address = busanAddress(form.getAddress()); // 부산 주소가 아니면 400 (국세청 호출 전에 확인)
 
         // 1단계: 형식 · 체크섬
         if (!isValidBusinessNumber(businessNumber)) {
             throw new IllegalArgumentException("존재할 수 없는 사업자등록번호입니다. 번호를 다시 확인해주세요.");
         }
+        // 개업일자: 없는 날짜(2020-02-30) · 미래 날짜면 국세청을 부르기 전에 안내
+        //   (그대로 보내면 "국세청 등록 정보와 일치하지 않습니다"로만 나와서 날짜가 틀린 줄 모름)
+        checkOpenDate(form.getOpenDate());
 
         // 테스트 신청(시연용): 국세청 API 대신 테스트 번호표로 결과를 정함, 사업자번호 중복 검사도 하지 않음
         boolean test = form.isTestMode();
@@ -97,7 +109,7 @@ public class OwnerApplicationService {
                     .member(member)
                     .storeName(form.getStoreName().trim())
                     .address(address)
-                    .phone(form.getPhone().trim())
+                    .phone(phone)
                     .businessNumber(businessNumber)
                     .message(form.getMessage() == null || form.getMessage().isBlank()
                             ? null : form.getMessage().trim())
@@ -121,6 +133,21 @@ public class OwnerApplicationService {
                 businessNumber, ACTIVE_STATUSES, memberId)) {
             throw new IllegalArgumentException("이미 다른 회원이 이 사업자등록번호로 신청했거나 승인받았습니다. "
                     + "본인 사업자번호가 맞다면 관리자에게 문의해주세요.");
+        }
+    }
+
+    // 개업일자 검사 (형식 yyyy-MM-dd 는 OwnerApplicationForm 의 @Pattern 이 이미 확인함)
+    //   LocalDate.parse: ISO 형식은 엄격하게 읽어서 2020-02-30, 2020-13-01 같은 없는 날짜면 DateTimeParseException
+    //   화면(apply.html)의 max=오늘 은 화면을 거치지 않은 요청을 막지 못하므로 서버에서 한 번 더
+    static void checkOpenDate(String openDate) {
+        LocalDate date;
+        try {
+            date = LocalDate.parse(openDate);
+        } catch (DateTimeParseException e) {
+            throw new IllegalArgumentException("개업일자가 올바른 날짜가 아닙니다. 사업자등록증의 개업연월일을 확인해주세요.");
+        }
+        if (date.isAfter(LocalDate.now(SEOUL))) {
+            throw new IllegalArgumentException("개업일자는 오늘 이후 날짜일 수 없습니다.");
         }
     }
 
@@ -154,6 +181,11 @@ public class OwnerApplicationService {
             return "부산광역시 " + a.substring("부산 ".length());
         }
         throw new IllegalArgumentException("부산 지역 가게만 신청할 수 있습니다. [주소 검색]으로 부산 주소를 선택해주세요.");
+    }
+
+    // 번호에서 숫자만 남김: "123-45-67891" → "1234567891", "010-1234-5678" → "01012345678"
+    static String digitsOnly(String value) {
+        return value == null ? "" : value.replaceAll("\\D", "");
     }
 
     // 1단계: 사업자등록번호 검증 숫자(마지막 자리) 확인

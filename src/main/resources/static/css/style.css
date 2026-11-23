@@ -122,6 +122,14 @@ main h2 > .bi, main h4 > .bi, main h5 > .bi { color: var(--mz-buoy); }
     padding-inline: .75rem !important;
 }
 .navbar .nav-link:hover { background: rgba(255, 255, 255, .08); }
+/* 지금 보고 있는 화면의 메뉴 (common.js markActiveNav 가 active 를 붙임)
+   글자를 굵게 + 배경을 살짝 밝게 + 아래에 탭(.nav-tabs)과 같은 색 밑줄 */
+.navbar .nav-link.active {
+    font-weight: 700;
+    background: rgba(255, 255, 255, .14);
+    box-shadow: inset 0 -3px 0 var(--mz-buoy);
+}
+.navbar .nav-link.active .bi { opacity: 1; color: var(--mz-buoy); }
 .navbar .nav-link .bi { margin-right: .15rem; opacity: .85; }
 .navbar-toggler { border-color: rgba(255, 255, 255, .25); }
 

@@ -27,7 +27,8 @@ public interface OwnerApplicationRepository extends JpaRepository<OwnerApplicati
     // 같은 사업자번호로 "다른 회원"이 심사 중이거나 승인받은 실제 신청이 있는지
     //   (한 사업자로 여러 계정이 사장 권한을 받는 것 방지. 본인이 권한 해제 후 같은 번호로 다시 신청하는 것은 허용)
     //   테스트 신청(testApplication = true)은 세지 않음 → 시연에서 쓴 번호가 실제 신청을 막지 않음
-    // 예: existsByBusinessNumberAndStatusInAndMemberIdNotAndTestApplicationFalse("123-45-67890", List.of(PENDING, APPROVED), 회원ID)
+    // 예: existsByBusinessNumberAndStatusInAndMemberIdNotAndTestApplicationFalse("1234567891", List.of(PENDING, APPROVED), 회원ID)
+    //   번호는 숫자만 저장되므로 숫자만으로 비교 (OwnerApplicationService.digitsOnly)
     boolean existsByBusinessNumberAndStatusInAndMemberIdNotAndTestApplicationFalse(
             String businessNumber, Collection<OwnerApplicationStatus> statuses, Long memberId);
 
