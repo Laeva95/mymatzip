@@ -39,6 +39,7 @@ import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
@@ -55,11 +56,12 @@ public class ReviewApiController {
     @GetMapping("/restaurant/{restaurantId}")
     public ResponseEntity<PageResponse<ReviewResponse>> listByRestaurant(
             @PathVariable Long restaurantId,
+            @LoginMember Member loginMember,
             @PageableDefault(size = 10, sort = "createdAt",
                     direction = Sort.Direction.DESC) Pageable pageable) {
 
         return ResponseEntity.ok(
-                reviewService.findByRestaurantId(restaurantId, pageable)
+                reviewService.findByRestaurantId(restaurantId, pageable, loginMember)
         );
     }
 
@@ -80,13 +82,16 @@ public class ReviewApiController {
             return ResponseEntity.status(HttpStatus.CREATED).body(response);
 
         } catch (EntityNotFoundException e) {
-            // 3단계-A: 존재하지 않는 맛집일 때 (404 Not Found)
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
                     .body(Map.of("error", e.getMessage()));
 
         } catch (IllegalArgumentException e) {
-            // 3단계-B: 잘못된 요청 값일 때 (400 Bad Request)
             return ResponseEntity.badRequest()
+                    .body(Map.of("error", e.getMessage()));
+
+            // [추가] 본인 가게 등 권한 없음 (403 Forbidden)
+        } catch (AccessDeniedException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
                     .body(Map.of("error", e.getMessage()));
         }
     }
@@ -117,6 +122,59 @@ public class ReviewApiController {
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
                     .body(Map.of("error", e.getMessage()));
         }
+    }
+
+    // [추가] 리뷰 도움돼요 등록
+    @PostMapping("/{id}/helpful")
+    public ResponseEntity<Map<String, String>> addHelpful(
+            @PathVariable Long id,
+            @LoginMember Member loginMember) {
+
+        if (loginMember == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("error", "로그인이 필요한 서비스입니다."));
+        }
+
+        try {
+            reviewService.addHelpful(id, loginMember);
+            return ResponseEntity.ok(Map.of("message", "도움돼요를 등록했습니다."));
+        } catch (EntityNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("error", e.getMessage()));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("error", e.getMessage()));
+        } catch (DataIntegrityViolationException e) {
+            // 동시에 같은 회원이 중복 요청한 경우 DB 유니크 제약조건으로 차단
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(Map.of("error", "이미 도움돼요를 눌렀습니다."));
+        }
+    }
+
+    // [추가] 리뷰 도움돼요 취소
+    @DeleteMapping("/{id}/helpful")
+    public ResponseEntity<Map<String, String>> removeHelpful(
+            @PathVariable Long id,
+            @LoginMember Member loginMember) {
+
+        if (loginMember == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("error", "로그인이 필요한 서비스입니다."));
+        }
+
+        try {
+            reviewService.removeHelpful(id, loginMember);
+            return ResponseEntity.ok(Map.of("message", "도움돼요를 취소했습니다."));
+        } catch (EntityNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    // [추가] 맛집별 인기 키워드 조회
+    @GetMapping("/restaurant/{restaurantId}/keywords")
+    public ResponseEntity<?> popularKeywords(@PathVariable Long restaurantId) {
+        return ResponseEntity.ok(reviewService.getPopularKeywords(restaurantId));
     }
 
     // ── 4. POST /api/reviews/{id}/report ────────────────────

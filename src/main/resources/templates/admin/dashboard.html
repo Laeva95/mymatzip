@@ -3,6 +3,7 @@
 [admin/dashboard.html] 관리자 대시보드 (D 찜 담당, 여유 있으면)
 컨트롤러: AdminViewController.dashboard() (GET /admin) → 넘겨주는 값 없음. ADMIN 만 접근 (SecurityConfig)
 데이터: fetch GET /api/admin/stats → { totalMembers, totalRestaurants, totalReviews }
+      fetch GET /api/admin/owner-applications?status=PENDING&size=1 → totalElements (사장 신청 대기 건수 배지)
 */-->
 <html lang="ko" xmlns:th="http://www.thymeleaf.org">
 <head th:replace="~{fragments/layout :: head('관리자 대시보드')}"></head>
@@ -18,13 +19,20 @@
         <div class="col-md-4"><div class="card text-center shadow-sm"><div class="card-body">
             <i class="bi bi-chat-dots" style="font-size:2rem;color:#ffc107;"></i><h3 class="mt-2" id="statReviews">-</h3><p class="text-muted mb-0">전체 리뷰</p></div></div></div>
     </div>
+    <!--/* 메뉴 카드 4개: 넓은 화면(lg)은 한 줄에 4개, 중간 화면(md)은 2개씩 두 줄 */-->
     <div class="row g-3">
-        <div class="col-md-4"><a th:href="@{/admin/members}" class="text-decoration-none"><div class="card shadow-sm h-100"><div class="card-body text-center">
+        <div class="col-md-6 col-lg-3"><a th:href="@{/admin/members}" class="text-decoration-none"><div class="card shadow-sm h-100"><div class="card-body text-center">
             <i class="bi bi-person-gear" style="font-size:2rem;"></i><h5 class="mt-2">회원 관리</h5><p class="text-muted small">회원 목록 조회, 역할 변경, 삭제</p></div></div></a></div>
-        <div class="col-md-4"><a th:href="@{/admin/restaurants}" class="text-decoration-none"><div class="card shadow-sm h-100"><div class="card-body text-center">
+        <div class="col-md-6 col-lg-3"><a th:href="@{/admin/restaurants}" class="text-decoration-none"><div class="card shadow-sm h-100"><div class="card-body text-center">
             <i class="bi bi-building" style="font-size:2rem;"></i><h5 class="mt-2">맛집 관리</h5><p class="text-muted small">맛집 목록 조회, 삭제</p></div></div></a></div>
-        <div class="col-md-4"><a th:href="@{/admin/reviews}" class="text-decoration-none"><div class="card shadow-sm h-100"><div class="card-body text-center">
+        <div class="col-md-6 col-lg-3"><a th:href="@{/admin/reviews}" class="text-decoration-none"><div class="card shadow-sm h-100"><div class="card-body text-center">
             <i class="bi bi-flag" style="font-size:2rem;"></i><h5 class="mt-2">리뷰 관리</h5><p class="text-muted small">리뷰 목록 조회, 삭제</p></div></div></a></div>
+        <!--/* 식당 사장 신청 심사 → OwnerApplicationViewController (GET /admin/owner-applications)
+               빨간 배지 = 심사 대기 건수 (0건이면 숨김) */-->
+        <div class="col-md-6 col-lg-3"><a th:href="@{/admin/owner-applications}" class="text-decoration-none"><div class="card shadow-sm h-100"><div class="card-body text-center">
+            <i class="bi bi-person-badge" style="font-size:2rem;"></i>
+            <h5 class="mt-2">사장 신청 심사 <span class="badge bg-danger d-none" id="pendingOwnerCount"></span></h5>
+            <p class="text-muted small">식당 사장 권한 신청 승인, 반려</p></div></div></a></div>
     </div>
 </main>
 <th:block th:replace="~{fragments/layout :: footer}"></th:block>
@@ -35,6 +43,13 @@
             document.getElementById('statMembers').textContent = r.body.totalMembers;
             document.getElementById('statRestaurants').textContent = r.body.totalRestaurants;
             document.getElementById('statReviews').textContent = r.body.totalReviews;
+        });
+        // 심사 대기 건수: size=1 로 조회해 totalElements 만 사용 (AdminService 는 수정하지 않음)
+        fetchJson('/api/admin/owner-applications?status=PENDING&size=1').then(function (r) {
+            if (!r.ok || !r.body.totalElements) return;
+            const badge = document.getElementById('pendingOwnerCount');
+            badge.textContent = r.body.totalElements;
+            badge.classList.remove('d-none');
         });
     });
 </script>

@@ -247,4 +247,17 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
 
     // [추가] 삭제된 맛집의 리뷰 제외 - 마이페이지 리뷰 개수
     long countByMemberIdAndRestaurant_DeletedAtIsNull(Long memberId);
+
+    // [추가] 맛집별 인기 리뷰 키워드 조회
+    @Query("SELECT k AS keyword, COUNT(k) AS tagCount " +
+            "FROM Review r JOIN r.keywordTags k " +
+            "WHERE r.restaurant.id = :restaurantId " +
+            "GROUP BY k ORDER BY COUNT(k) DESC")
+    List<KeywordCount> findPopularKeywordsByRestaurantId(
+            @Param("restaurantId") Long restaurantId);
+
+    interface KeywordCount {
+        String getKeyword();
+        Long getTagCount();
+    }
 }

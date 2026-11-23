@@ -20,8 +20,8 @@ API: GET /api/admin/reviews, GET /api/admin/reviews/reported, DELETE /api/admin/
     <div class="card shadow-sm"><div class="card-body">
         <div class="table-responsive">
             <table class="table table-hover">
-                <thead class="table-light"><tr><th>ID</th><th>내용</th><th>별점</th><th>작성자</th><th>맛집</th><th>작성일</th><th>관리</th></tr></thead>
-                <tbody id="reviewTableBody"><tr><td colspan="7" class="text-center">로딩 중...</td></tr></tbody>
+                <thead class="table-light"><tr><th>ID</th><th>내용</th><th>별점</th><th>작성자</th><th>맛집</th><th>작성일</th><th>AI 판정</th><th>관리</th></tr></thead>
+                <tbody id="reviewTableBody"><tr><td colspan="8" class="text-center">로딩 중...</td></tr></tbody>
             </table>
 
             <nav id="reviewsPagination" class="mt-3">
@@ -63,7 +63,7 @@ API: GET /api/admin/reviews, GET /api/admin/reviews/reported, DELETE /api/admin/
             const list = Array.isArray(data.content) ? data.content : [];
 
             if (list.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">리뷰가 없습니다.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted">리뷰가 없습니다.</td></tr>';
                 document.getElementById('reviewsPagination').innerHTML = '';
                 return;
             }
@@ -73,11 +73,16 @@ API: GET /api/admin/reviews, GET /api/admin/reviews/reported, DELETE /api/admin/
                     ? x.content.substring(0, 50) + '...'
                     : x.content;
 
+                const aiBadge = x.aiSpam
+                    ? '<span class="badge bg-warning text-dark" title="' + esc(x.aiSpamReason || '') + '">AI 스팸 의심</span>'
+                    : '<span class="text-muted">정상</span>';
+
                 return '<tr><td>' + Number(x.id) + '</td>' +
                     '<td>' + (x.reported ? '<span class="badge bg-danger me-1">신고</span>' : '') + esc(content) + '</td>' +
                     '<td class="rating-stars">' + renderStars(x.rating) + '</td>' +
                     '<td>' + esc(x.memberNickname) + '</td><td>' + esc(x.restaurantName) + '</td>' +
                     '<td>' + esc(formatDateTime(x.createdAt)) + '</td>' +
+                    '<td>' + aiBadge + '</td>' +
                     '<td><button class="btn btn-outline-danger btn-sm" onclick="deleteReview(' + Number(x.id) + ')"><i class="bi bi-trash"></i></button></td></tr>';
             }).join('');
 

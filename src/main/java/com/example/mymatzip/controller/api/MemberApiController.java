@@ -107,6 +107,10 @@ import org.springframework.web.bind.annotation.RestController;
 // JSON 응답을 만들 때 사용 (예: Map.of("error", "에러 메시지") → {"error": "에러 메시지"})
 import java.util.Map;
 
+import com.example.mymatzip.service.EmailAuthService;
+
+import com.example.mymatzip.entity.Role;
+
 // ── @RestController 어노테이션 ──────────────────────────────
 // 이 클래스가 REST API 컨트롤러임을 스프링에게 알려줍니다.
 // REST = 화면(HTML)이 아닌 데이터(JSON)를 반환하는 방식
@@ -140,6 +144,8 @@ public class MemberApiController {
     // 로그인 성공 시 JWT 토큰을 발급하여 클라이언트에게 전달합니다.
     private final JwtTokenProvider jwtTokenProvider;
 
+    private final EmailAuthService emailAuthService; // [11/19 추가]
+
     // ── POST /api/members/signup ────────────────────────────
     // 회원가입 API: JSON으로 받은 회원 정보를 DB에 저장
     // 요청 예시: POST http://localhost:8080/api/members/signup
@@ -160,6 +166,12 @@ public class MemberApiController {
     //   - ?는 와일드카드: 성공 시 Map, 실패 시 Map 등 다양한 타입 가능
     @PostMapping("/signup")
     public ResponseEntity<?> signup(@Valid @RequestBody MemberSignupForm form) {
+        // ── 0단계: 이메일 인증 완료 여부 검증 (우회 요청 차단) ── [11/19 추가]
+        if (!emailAuthService.consumeVerifiedEmail(form.getEmail())) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("error", "이메일 인증을 먼저 완료해주세요."));
+        }
+
         // ── 1단계: 회원가입 처리 ────────────────────────
         // memberService.signup(form): Service에게 회원가입 로직 실행을 요청
         //   - 이메일 중복 검사
@@ -204,12 +216,18 @@ public class MemberApiController {
                                    HttpServletRequest request,
                                    HttpServletResponse response) {
         try {
-            // ── 1단계: 로그인 처리 ──────────────────────────
+            // ── 1단계: 이메일/비밀번호 일치 확인 ──────────────── [11/19 수정]
             // memberService.login(form): Service에게 로그인 검증 요청
             //   - 이메일로 회원 조회
             //   - BCrypt로 비밀번호 일치 여부 확인
             //   - 일치하면 Member 객체 반환, 불일치하면 예외 발생
             Member member = memberService.login(form);
+
+            // ── 1.5단계: 일반 회원만 이메일 인증 완료 여부 검증 (관리자는 예외) ─── [11/19 수정]
+            if (member.getRole() != Role.ADMIN && !emailAuthService.consumeVerifiedEmail(form.getEmail())) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(Map.of("error", "이메일 인증을 먼저 완료해주세요."));
+            }
 
             // ── 2단계: [Security] SecurityContext에 인증 정보 설정 ──
             // Spring Security의 SecurityContextHolder에 인증 정보를 저장합니다.

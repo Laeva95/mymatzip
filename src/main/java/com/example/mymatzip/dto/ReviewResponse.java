@@ -147,6 +147,15 @@ public class ReviewResponse {
     // ──────────────────────────────────────────────────────
     private String imageUrl;                // 리뷰 이미지 URL (선택, null 가능)
 
+    // [추가] 리뷰 도움돼요 수
+    private int helpfulCount;
+
+    // [추가] 현재 로그인 회원의 도움돼요 여부
+    private boolean helpfulByMe;
+
+    // [추가] 리뷰 키워드 태그
+    private java.util.Set<String> keywordTags;
+
     // ──────────────────────────────────────────────────────
     // Entity → Response DTO 변환 메서드 (정적 팩토리 메서드)
     // ──────────────────────────────────────────────────────
@@ -174,6 +183,11 @@ public class ReviewResponse {
     //       .toList();                     // List로 수집
     // ──────────────────────────────────────────────────────
     public static ReviewResponse from(Review review) {
+        return from(review, null);
+    }
+
+    // [추가] 로그인 회원 ID를 받아 도움돼요 여부까지 변환
+    public static ReviewResponse from(Review review, Long loginMemberId) {
 
         // @Builder 패턴으로 ReviewResponse 객체를 하나씩 조립하여 생성합니다.
         return ReviewResponse.builder()
@@ -204,6 +218,14 @@ public class ReviewResponse {
 
                 // [Phase 7] review.getImageUrl() → 리뷰 이미지 URL을 설정 (null일 수 있음)
                 .imageUrl(review.getImageUrl())
+
+                // [추가] 도움돼요 수와 로그인 회원의 투표 여부
+                .helpfulCount(review.getHelpfulMemberIds().size())
+                .helpfulByMe(loginMemberId != null
+                        && review.getHelpfulMemberIds().contains(loginMemberId))
+
+                // [추가] 리뷰 키워드 태그
+                .keywordTags(new java.util.LinkedHashSet<>(review.getKeywordTags()))
 
                 // .build() → 위에서 설정한 모든 값으로 ReviewResponse 객체를 최종 생성
                 .build();
