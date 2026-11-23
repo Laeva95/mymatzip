@@ -29,6 +29,10 @@ public class OwnerApplicationResponse {
     private String rejectReason;
     private LocalDateTime createdAt;
     private LocalDateTime reviewedAt;
+    private String businessStatus;            // 국세청 사업 상태 (확인 전 신청이면 null)
+    private String taxType;                   // 국세청 과세 유형
+    private LocalDateTime businessVerifiedAt; // 국세청 확인 시각
+    private boolean testApplication;          // 시연용 테스트 신청 (국세청 확인 안 함)
 
     public static OwnerApplicationResponse from(OwnerApplication a) {
         return OwnerApplicationResponse.builder()
@@ -46,6 +50,10 @@ public class OwnerApplicationResponse {
                 .rejectReason(a.getRejectReason())
                 .createdAt(a.getCreatedAt())
                 .reviewedAt(a.getReviewedAt())
+                .businessStatus(a.getBusinessStatus())
+                .taxType(a.getTaxType())
+                .businessVerifiedAt(a.getBusinessVerifiedAt())
+                .testApplication(a.isTestApplication())
                 .build();
     }
 }
