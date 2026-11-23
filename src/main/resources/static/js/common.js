@@ -19,16 +19,44 @@ function esc(value) {
         .replace(/'/g, '&#39;');
 }
 
-/* 별점(0~5)을 별 아이콘 5개 HTML 로 만든다. withNumber=true 이면 (4.3) 숫자도 붙인다. */
+/* 별점(0~5)을 별 아이콘 5개 HTML 로 만든다. withNumber=true 이면 (4.3) 숫자도 붙인다.
+   평균 별점은 0.5 단위로 반올림해서 그린다 (4.2 → ★★★★☆, 4.3 → ★★★★½, 4.8 → ★★★★★)
+     i 번째 별: rating ≥ i - 0.25 이면 꽉 찬 별, rating ≥ i - 0.75 이면 반쪽 별, 아니면 빈 별
+   리뷰 1개의 별점처럼 정수(1~5)면 예전과 똑같이 그려진다. home.html 의 타임리프 별점과 같은 규칙 */
 function renderStars(rating, withNumber) {
+    const value = Number(rating) || 0;
     let html = '';
     for (let i = 1; i <= 5; i++) {
-        html += '<i class="bi ' + (i <= rating ? 'bi-star-fill' : 'bi-star') + '"></i>';
+        const icon = value >= i - 0.25 ? 'bi-star-fill' : (value >= i - 0.75 ? 'bi-star-half' : 'bi-star');
+        html += '<i class="bi ' + icon + '"></i>';
     }
     if (withNumber) {
         html += ' <span class="text-muted small">(' + esc(rating) + ')</span>';
     }
     return html;
+}
+
+/* 상단 메뉴(layout.html header)에서 지금 주소에 해당하는 메뉴에 active 표시
+   가장 길게 맞는 메뉴 하나만 고름: /restaurants/new → "맛집 등록" (더 짧은 /restaurants "맛집 목록"이 아님)
+                                  /restaurants/3   → "맛집 목록",  /admin/members → "관리자"
+   로그아웃 링크는 화면이 아니므로 제외. layout.html footer 조각이 페이지마다 한 번 부름 */
+function markActiveNav() {
+    const path = location.pathname;
+    let best = null;
+    let bestLength = 0;
+    document.querySelectorAll('#navbarNav a.nav-link').forEach(function (link) {
+        const href = link.getAttribute('href');
+        if (!href || href.indexOf('/logout') >= 0) return;
+        const matched = path === href || path.indexOf(href.replace(/\/$/, '') + '/') === 0;
+        if (matched && href.length > bestLength) {
+            best = link;
+            bestLength = href.length;
+        }
+    });
+    if (best) {
+        best.classList.add('active');
+        best.setAttribute('aria-current', 'page');
+    }
 }
 
 /* 2026-10-28T14:30:00 형식을 2026-10-28 14:30 으로 줄인다. */
@@ -37,11 +65,49 @@ function formatDateTime(value) {
     return String(value).replace('T', ' ').substring(0, 16);
 }
 
-/* 맛집 카드 1개 HTML. list.html 검색 결과, home.html AI 추천, wishlist 에서 사용 */
-function restaurantCardHtml(r, extraHtml) {
+/* 사업자등록번호를 화면에 보여줄 모양으로: "1234567891" → "123-45-67891"
+   DB 에는 숫자만 저장 (OwnerApplicationService.digitsOnly). 10자리가 아니면 받은 값 그대로 */
+function formatBusinessNumber(value) {
+    if (!value) return '';
+    const d = String(value).replace(/\D/g, '');
+    return d.length === 10 ? d.substring(0, 3) + '-' + d.substring(3, 5) + '-' + d.substring(5) : String(value);
+}
+
+/* 전화번호를 화면에 보여줄 모양으로 (DB 에는 숫자만 저장)
+   15881234 → 1588-1234 (대표번호)        021234567 / 0212345678 → 02-123-4567 / 02-1234-5678 (서울)
+   0511234567 → 051-123-4567              01012345678 → 010-1234-5678
+   050712345678 → 0507-1234-5678 (안심번호)  규칙에 맞지 않으면 받은 값 그대로 */
+function formatPhone(value) {
+    if (!value) return '';
+    const d = String(value).replace(/\D/g, '');
+    let m;
+    if ((m = d.match(/^(1[5-9]\d{2})(\d{4})$/))) return m[1] + '-' + m[2];
+    if ((m = d.match(/^(02)(\d{3,4})(\d{4})$/))) return m[1] + '-' + m[2] + '-' + m[3];
+    if ((m = d.match(/^(0\d{3})(\d{4})(\d{4})$/))) return m[1] + '-' + m[2] + '-' + m[3];   // 12자리: 0507 등
+    if ((m = d.match(/^(0\d{2})(\d{3,4})(\d{4})$/))) return m[1] + '-' + m[2] + '-' + m[3];  // 10 · 11자리
+    return String(value);
+}
+
+/* 맛집 카드 1개 HTML. list.html 검색 결과, home.html AI 추천에서 사용
+   withDefaultImage (선택, 기본 false)
+     true  : 사진이 없거나 깨지면 카테고리 기본 이미지(r.defaultImageUrl) — home.html 처음 화면 카드와 같게
+     false : 예전 그대로 (사진이 없으면 사진 칸을 만들지 않음)
+   ※ list.html 은 restaurantCardHtmlAddBasicImage() 로 기본 이미지를 직접 끼워 넣으므로 false 로 부른다.
+     (true 로 부르면 기본 이미지가 두 번 들어감. 그 함수를 없앨 때 true 로 바꾸면 됨) */
+function restaurantCardHtml(r, extraHtml, withDefaultImage) {
+    let imgHtml = '';
+    if (withDefaultImage && (r.imageUrl || r.defaultImageUrl)) {
+        const fallback = r.defaultImageUrl
+            ? ' data-default="' + esc(r.defaultImageUrl) + '" onerror="this.onerror=null;this.src=this.dataset.default;"'
+            : '';
+        imgHtml = '<img src="' + esc(r.imageUrl || r.defaultImageUrl) + '"' + fallback +
+            ' class="card-img-top" alt="" style="height:180px;object-fit:cover;">';
+    } else if (r.imageUrl) {
+        imgHtml = '<img src="' + esc(r.imageUrl) + '" class="card-img-top" alt="" style="height:180px;object-fit:cover;">';
+    }
     return '<div class="col-md-6 col-lg-4">' +
         '<div class="card h-100">' +
-        (r.imageUrl ? '<img src="' + esc(r.imageUrl) + '" class="card-img-top" alt="" style="height:180px;object-fit:cover;">' : '') +
+        imgHtml +
         '<div class="card-body">' +
         '<div class="d-flex justify-content-between align-items-start mb-2">' +
         '<h5 class="card-title mb-0"><a href="/restaurants/' + Number(r.id) + '" class="text-decoration-none text-dark">' + esc(r.name) + '</a></h5>' +

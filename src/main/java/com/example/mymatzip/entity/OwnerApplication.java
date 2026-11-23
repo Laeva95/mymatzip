@@ -51,10 +51,10 @@ public class OwnerApplication {
     private String address;         // 가게 주소
 
     @Column(nullable = false, length = 20)
-    private String phone;           // 연락처
+    private String phone;           // 연락처 (숫자만, 예: 0511234567)
 
     @Column(nullable = false, length = 12)
-    private String businessNumber;  // 사업자등록번호 (예: 123-45-67890)
+    private String businessNumber;  // 사업자등록번호 (숫자만, 예: 1234567891)
 
     @Column(length = 1000)
     private String message;         // 관리자에게 남기는 말 (선택)
