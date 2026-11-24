@@ -341,8 +341,11 @@
 	</div>
 	
 	<div class="mt-3">
-    <a th:href="@{/restaurants}"
-       class="btn btn-outline-secondary"
+        <!-- [변경]2026.11.24권성애 sort 추가 — 기록이 없을 때(새 탭 등)도 보던 페이지 · 카테고리 · 정렬로 -->
+        <a th:href="${listCategory != null}
+            ? @{/restaurants(category=${listCategory}, sort=${listSort}, page=${listPage})}
+            : (${listPage != null} ? @{/restaurants(sort=${listSort}, page=${listPage})} : @{/restaurants(sort=${listSort})})"
+           class="btn btn-outline-secondary"
        onclick="if (history.length > 1) { history.back(); return false; }">
         목록으로
     </a></div>

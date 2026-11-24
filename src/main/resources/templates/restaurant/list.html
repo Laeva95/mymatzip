@@ -108,9 +108,10 @@
                     <h5 class="card-title mb-0">
 <!--                        <a th:href="@{/restaurants/{id}(id=${r.id})}" -->
                         <!-- [변경]2026.11.19권성애 상세로 갈 때 지금 페이지 · 카테고리를 같이 넘김 (상세의 "목록으로"가 그 페이지로 돌아오게) -->
+                        <!-- [변경]2026.11.24권성애 sort 추가 — 상세로 갈 때 지금 정렬도 같이 넘김 -->
                         <a th:href="${selectedCategory != null}
-                        ? @{/restaurants/{id}(id=${r.id}, page=${currentPage}, category=${selectedCategory})}
-                        : @{/restaurants/{id}(id=${r.id}, page=${currentPage})}"
+                        ? @{/restaurants/{id}(id=${r.id}, page=${currentPage}, category=${selectedCategory}, sort=${selectedSort})}
+                        : @{/restaurants/{id}(id=${r.id}, page=${currentPage}, sort=${selectedSort})}"
                            class="text-decoration-none text-dark" th:text="${r.name}">이름</a>
                     </h5>
                     <span class="badge bg-primary" th:text="${r.categoryDisplayName}">한식</span>
@@ -202,19 +203,13 @@ function restaurantCardHtmlAddBasicImage(r) {
     // 사진이 없어 사진 칸이 없는 카드 → 카드 맨 위에 기본 이미지 칸을 넣음 (restaurantCardHtml 의 사진 칸과 같은 class · style)
     const img = '<img src="' + esc(r.defaultImageUrl) + '"' + fallback +
         ' class="card-img-top" alt="" style="height:180px;object-fit:cover;">';
-    // [추가]2026.11.23권성애 sort 추가 — 검색 카드 리뷰 수 · 찜 수 (값이 없으면 0)
-    const counts = ' <span class="card-counts"><i class="bi bi-chat"></i> ' + (r.reviewCount ?? 0)
-        + ' · <i class="bi bi-heart"></i> ' + (r.wishlistCount ?? 0) + '</span>';
-
-    return html.replace('<div class="card h-100">', '<div class="card h-100">' + img)
-        // [추가]2026.11.23권성애 sort 추가 — <div class="rating-stars">별점</div> 의 닫는 태그 바로 앞에 개수 넣기
-        .replace(/(<div class="rating-stars">[\s\S]*?)(<\/div>)/, '$1' + counts + '$2');
+    return html.replace('<div class="card h-100">', '<div class="card h-100">' + img);
 }
 
-document.getElementById('searchForm').addEventListener('submit', function (e) {
-    e.preventDefault();
-    const keyword = document.getElementById('keyword').value.trim();
-    if (!keyword) { window.location.href = '/restaurants'; return; }
+
+// [추가]2026.11.24권성애 검색 실행 — submit 할 때 · 주소에 keyword 가 있을 때(뒤로 가기 · 새로고침) 공통
+//   기존 submit 안의 fetchJson(...).then(...) 부분을 그대로 옮김
+function searchRestaurantsByKeyword(keyword) {
     fetchJson('/api/restaurants/search?keyword=' + encodeURIComponent(keyword))
         .then(function (r) {
             const container = document.getElementById('restaurantList');
@@ -226,7 +221,6 @@ document.getElementById('searchForm').addEventListener('submit', function (e) {
             const sortBar = document.getElementById('sortBar');
             if (sortBar) sortBar.classList.add('d-none');
 
-
             const list = Array.isArray(r.body) ? r.body : [];
             if (list.length === 0) {
                 container.innerHTML = '<div class="col-12"><div class="alert alert-info text-center">검색 결과가 없습니다.</div></div>';
@@ -235,17 +229,42 @@ document.getElementById('searchForm').addEventListener('submit', function (e) {
             // [변경]2026.11.12권성애 (restaurantCardHtml → restaurantCardHtmlAddBasicImage : 사진이 없거나 깨지면 기본 이미지)
             // [추가] 검색 결과 카드에도 썸네일 하트(찜) 버튼을 넣고, 현재 찜 상태로 칠한다
             container.innerHTML = list.map(function (item) {
+
+                // [변경]2026.11.24권성애 sort 추가 — 사진 있는 카드 · 없는 카드 모두 리뷰 수 · 찜 수 표시 (함수 안에서는 사진 있는 카드가 먼저 return 돼서 빠졌음)
+                const counts = ' <span class="card-counts"><i class="bi bi-chat"></i> ' + (item.reviewCount ?? 0)
+                    + ' · <i class="bi bi-heart"></i> ' + (item.wishlistCount ?? 0) + '</span>';
+
                 return restaurantCardHtmlAddBasicImage(item)
-                    .replace('<div class="card h-100">', '<div class="card h-100">' + wishHeartButtonHtml(item.id));
+                    .replace('<div class="card h-100">', '<div class="card h-100">' + wishHeartButtonHtml(item.id))
+                    // [추가]2026.11.24권성애 sort 추가 — 별점 칸(rating-stars) 닫는 태그 바로 앞에 개수
+                    .replace(/(<div class="rating-stars">[\s\S]*?)(<\/div>)/, '$1' + counts + '$2');
             }).join('');
-            WishHeart.refresh();
+            WishHeart.refresh();   // 찜 하트 칠하기 — 그대로 (함수 안으로 옮김)
         });
+}
+
+
+document.getElementById('searchForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+    const keyword = document.getElementById('keyword').value.trim();
+    if (!keyword) { window.location.href = '/restaurants'; return; }
+
+    // [추가]2026.11.24권성애 주소에 검색어 남기기 (새로고침 없이 주소만 바뀜) — 상세 → "목록으로"(뒤로 가기) 때 이 주소로 돌아옴
+    history.replaceState(null, '', '/restaurants?keyword=' + encodeURIComponent(keyword));
+    searchRestaurantsByKeyword(keyword);   // [변경]2026.11.24권성애 fetch 부분을 함수로 옮김
+
 });
 
-// [추가]2026.11.23권성애 sort 추가 — 목록에 다시 들어오면 검색칸 비우기 (화면은 전체 목록이므로 맞춤)
-window.addEventListener('pageshow', function () {
-    const input = document.getElementById('keyword');
-    if (input) input.value = '';
+
+// [변경]2026.11.24권성애 (11-23 검색칸 비우기 → 검색 결과 유지)
+//   주소에 keyword 가 있으면 검색칸에 넣고 같은 검색 실행
+//   DOMContentLoaded: common.js(fetchJson · WishHeart)가 다 읽힌 뒤 실행되게
+document.addEventListener('DOMContentLoaded', function () {
+    const keyword = (new URLSearchParams(location.search).get('keyword') || '').trim();
+    if (keyword) {
+        document.getElementById('keyword').value = keyword;
+        searchRestaurantsByKeyword(keyword);
+    }
 });
 
 </script>
