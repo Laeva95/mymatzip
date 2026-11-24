@@ -274,7 +274,9 @@ public class RestaurantViewController {
                          // [추가]2026.11.19권성애 목록에서 넘어온 페이지 · 카테고리 (없으면 null)
                          //   String 으로 받음: Category 로 받으면 이상한 값(?category=ABC)일 때 상세 화면이 400 에러가 남
                          @RequestParam(required = false) String page,
-                         @RequestParam(required = false) String category) {
+                         @RequestParam(required = false) String category,
+                         // [추가]2026.11.24권성애 sort 추가 — 목록에서 넘어온 정렬 (없으면 null)
+                         @RequestParam(required = false) String sort) {
         // ── 1단계: 맛집 상세 정보를 Model에 담기 ────────────
         // restaurantService.findById(id): 해당 ID의 맛집을 DB에서 조회
         // "restaurant"라는 이름으로 Model에 담음 → 타임리프 화면에서 ${restaurant}로 접근
@@ -313,6 +315,10 @@ public class RestaurantViewController {
         // [추가]2026.11.19권성애 "목록으로" 버튼이 돌아갈 페이지 · 카테고리
         model.addAttribute("listPage", page);
         model.addAttribute("listCategory", category);
+
+        // [추가]2026.11.24권성애 sort 추가 — "목록으로"가 돌아갈 정렬 (메인처럼 sort 없이 들어오면 최신순)
+        //   이상한 값(?sort=abc)은 그대로 넘겨도 목록 list() 가 최신순으로 바꿈
+        model.addAttribute("listSort", (sort != null) ? sort : "latest");
         return "restaurant/detail";
     }
 
