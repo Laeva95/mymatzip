@@ -253,6 +253,7 @@ public class AdminApiController {
                     // 추가된 부분-정범석
                     map.put("aiSpam", r.isAiSpam());
                     map.put("aiSpamReason", r.getAiSpamReason());
+                    map.put("reportReason", r.getReportReason());
                     return map;
                 })
                 .toList();

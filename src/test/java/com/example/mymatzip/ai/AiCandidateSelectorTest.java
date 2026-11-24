@@ -68,6 +68,33 @@ class AiCandidateSelectorTest {
     }
 
     @Test
+    void 부산의_주요_지역_별칭과_장소_접미사를_인식한다() {
+        // 영도 → 영도구
+        assertThat(AiCandidateSelector.select("영도 맛집", all, 50)).isEmpty();
+
+        // 송도 → 서구 (7번 맛집)
+        assertThat(AiCandidateSelector.select("송도 맛집", all, 50))
+                .extracting(RestaurantResponse::getId).containsExactly(7L);
+
+        // 달맞이 → 해운대구 (4번 카페)
+        assertThat(AiCandidateSelector.select("달맞이 카페", all, 50))
+                .extracting(RestaurantResponse::getId).containsExactly(4L);
+
+        // 서면역 → 부산진구 (국밥 카테고리 5번)
+        assertThat(AiCandidateSelector.select("서면역 국밥", all, 50))
+                .extracting(RestaurantResponse::getId).containsExactly(5L);
+
+        // 남포동 → 중구 (테스트 데이터 없음)
+        assertThat(AiCandidateSelector.select("남포동 맛집", all, 50)).isEmpty();
+
+        // 광안리해수욕장 → 수영구 (3번 일식)
+        assertThat(AiCandidateSelector.select("광안리해수욕장 카페", all, 50)).isEmpty();
+
+        // 부산대앞 → 금정구 (테스트 데이터 없음)
+        assertThat(AiCandidateSelector.select("부산대앞 맛집", all, 50)).isEmpty();
+    }
+
+    @Test
     void 조사가_붙은_지역명과_근처_표현은_지역으로_인식한다() {
         assertThat(AiCandidateSelector.select("해운대에서 국밥", all, 50))
                 .extracting(RestaurantResponse::getId).containsExactly(1L);
