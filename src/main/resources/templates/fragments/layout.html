@@ -45,7 +45,9 @@
     <div class="container">
         <!--/* th:href="@{/}" : @{...} 는 링크 주소 문법. 앱 기본 경로(context path)를 자동으로 앞에 붙인다. */-->
         <a class="navbar-brand" th:href="@{/}"><i class="bi bi-shop"></i> 부산 한끼</a>
-        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+        <!--/* aria-* : 화면 낭독기(시각장애인용)가 "메뉴 열기 버튼, 접힘/펼침"으로 읽어 줌. 펼침 상태(aria-expanded)는 Bootstrap 이 바꿔 줌 */-->
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
+                aria-controls="navbarNav" aria-expanded="false" aria-label="메뉴 열기">
             <span class="navbar-toggler-icon"></span>
         </button>
         <div class="collapse navbar-collapse" id="navbarNav">
@@ -101,6 +103,8 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <!--/* th:src="@{/js/common.js}" : WebMvcConfig 가 /js/** 를 classpath:/static/js/ 로 연결해 둔 파일 */-->
     <script th:src="@{/js/common.js}"></script>
+    <!--/* 상단 메뉴에서 지금 보고 있는 화면의 메뉴를 강조 (common.js markActiveNav) */-->
+    <script>markActiveNav();</script>
 </th:block>
 
 </body>

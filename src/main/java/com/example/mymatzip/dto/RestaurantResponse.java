@@ -191,6 +191,13 @@ public class RestaurantResponse {
     private String sourceDisplayName;       // 출처 한글 이름 (예: "직접등록", "공공API 모범음식점") — 화면에 읽기 전용 표시
     private String defaultImageUrl;         // 카테고리 기본 이미지 (예: "/images/category/korean.svg") — 사진이 없거나 깨질 때
 
+
+
+    // [추가]2026.11.23권성애 sort 추가 — 카드에 보여 줄 리뷰 수 · 찜 수 (기존 from() 으로 만들면 null)
+    private Long reviewCount;
+    private Long wishlistCount;
+
+
     // ──────────────────────────────────────────────────────
     // Entity → Response DTO 변환 메서드 (정적 팩토리 메서드)
     // ──────────────────────────────────────────────────────
@@ -269,5 +276,15 @@ public class RestaurantResponse {
 
                 // .build() → 위에서 설정한 모든 값으로 RestaurantResponse 객체를 최종 생성
                 .build();
+    }
+
+
+    // [추가]2026.11.23권성애 sort 추가 — 기존 from() 으로 만든 뒤 리뷰 수 · 찜 수만 채움 (기존 from() 은 그대로)
+    public static RestaurantResponse withReviewCountAndWishlist(Restaurant restaurant, Double averageRating,
+                                                                Long reviewCount, Long wishlistCount) {
+        RestaurantResponse response = from(restaurant, averageRating);
+        response.reviewCount = reviewCount;      // 같은 클래스 안이라 private 필드에 바로 넣을 수 있음
+        response.wishlistCount = wishlistCount;
+        return response;
     }
 }

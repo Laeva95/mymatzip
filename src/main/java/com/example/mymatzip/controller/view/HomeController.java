@@ -34,9 +34,8 @@ package com.example.mymatzip.controller.view;
 
 // ── import 문 (외부 라이브러리 가져오기) ─────────────────────
 
-// RestaurantService: 맛집 관련 비즈니스 로직을 처리하는 서비스 클래스
-// 메인 페이지에서 최신 맛집 6개를 가져오기 위해 사용
-import com.example.mymatzip.service.RestaurantService;
+// HomeService: 메인 화면 전용 조회 서비스 (최신 맛집 6개 + 별점 · 리뷰 수 · 찜 수)
+import com.example.mymatzip.service.HomeService;
 
 // @RequiredArgsConstructor: final 필드의 생성자를 자동 생성하는 Lombok 어노테이션
 import lombok.RequiredArgsConstructor;
@@ -61,15 +60,14 @@ import org.springframework.web.bind.annotation.GetMapping;
 @Controller
 
 // ── @RequiredArgsConstructor ────────────────────────────────
-// final 필드(restaurantService)에 대한 생성자를 자동 생성 → 의존성 주입(DI)
+// final 필드(homeService)에 대한 생성자를 자동 생성 → 의존성 주입(DI)
 @RequiredArgsConstructor
 // ── 클래스 선언 ─────────────────────────────────────────────
 public class HomeController {
 
     // ── 필드 (멤버 변수) ────────────────────────────────────
-    // RestaurantService: 맛집 관련 비즈니스 로직 담당 서비스
-    // 메인 페이지에서 최신 등록된 맛집 6개를 가져오기 위해 사용합니다.
-    private final RestaurantService restaurantService;
+    // HomeService: 메인 페이지에서 최신 등록된 맛집 6개를 별점 · 리뷰 수 · 찜 수와 함께 가져옵니다.
+    private final HomeService homeService;
 
     // ── GET / ───────────────────────────────────────────────
     // 메인(홈) 페이지: 최신 맛집 6개를 포함한 홈 화면을 보여줌
@@ -88,13 +86,15 @@ public class HomeController {
     @GetMapping("/")
     public String home(Model model) {
         // ── 1단계: 최신 맛집 6개를 Model에 담기 ─────────────
-        // restaurantService.findLatest6(): 가장 최근에 등록된 맛집 6개를 조회
+        // homeService.findLatest6WithReviewCountAndWishlist(): 가장 최근에 등록된 맛집 6개를 조회
         // model.addAttribute("restaurants", ...):
         //   "restaurants"라는 이름으로 맛집 목록을 Model에 담음
         //   타임리프 화면에서 ${restaurants}로 접근 가능
         //model.addAttribute("restaurants", restaurantService.findLatest6());
         // [변경]2026.11.16권성애 N+1 방지: findLatest6() → findLatest6AvoidNPlusOne() (평점을 한 번에 조회)
-        model.addAttribute("restaurants", restaurantService.findLatest6AvoidNPlusOne());
+        //model.addAttribute("restaurants", restaurantService.findLatest6AvoidNPlusOne());
+        // [변경]2026.11.24정운학 카드에 리뷰 수 · 찜 수 표시: 맛집 목록(list.html) 카드와 같은 값 (쿼리 3번 고정)
+        model.addAttribute("restaurants", homeService.findLatest6WithReviewCountAndWishlist());
 
         // ── 2단계: 타임리프 화면 이름 반환 ─────────────────────────
         // "home"을 반환하면:

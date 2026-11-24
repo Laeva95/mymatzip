@@ -1,3 +1,4 @@
+// [C수정] 리뷰 페이징 제한 및 로그인 회원 상태 반영
 /*
  * ============================================================================
  *  파일명    : ReviewApiController.java
@@ -34,8 +35,8 @@ import jakarta.persistence.EntityNotFoundException;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
-import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
@@ -57,8 +58,13 @@ public class ReviewApiController {
     public ResponseEntity<PageResponse<ReviewResponse>> listByRestaurant(
             @PathVariable Long restaurantId,
             @LoginMember Member loginMember,
-            @PageableDefault(size = 10, sort = "createdAt",
-                    direction = Sort.Direction.DESC) Pageable pageable) {
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+
+        int safePage = Math.max(page, 0);
+        int safeSize = Math.min(Math.max(size, 1), 50);
+        Pageable pageable = PageRequest.of(safePage, safeSize,
+                Sort.by(Sort.Direction.DESC, "createdAt"));
 
         return ResponseEntity.ok(
                 reviewService.findByRestaurantId(restaurantId, pageable, loginMember)
@@ -182,7 +188,8 @@ public class ReviewApiController {
     @PostMapping("/{id}/report")
     public ResponseEntity<Map<String, String>> report(
             @PathVariable Long id,
-            @LoginMember Member loginMember) {
+            @LoginMember Member loginMember,
+            @RequestBody(required = false) Map<String, String> body) {
 
         // 1단계: 비로그인 사용자 방어 (401 Unauthorized)
         if (loginMember == null) {
@@ -192,7 +199,8 @@ public class ReviewApiController {
 
         try {
             // 2단계: 리뷰 신고 처리 및 200 OK 반환
-            reviewService.report(id, loginMember);
+            String reason = (body == null) ? null : body.get("reason");
+            reviewService.report(id, loginMember, reason);
             return ResponseEntity.ok(
                     Map.of("message", "리뷰가 신고되었습니다.")
             );

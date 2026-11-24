@@ -1,3 +1,4 @@
+<!-- [C수정] 리뷰 API fallback 및 업로드 실패 파일 정리 수정 -->
 <!DOCTYPE html>
 <!--/*
 ============================================================
@@ -341,8 +342,11 @@
 	</div>
 	
 	<div class="mt-3">
-    <a th:href="@{/restaurants}"
-       class="btn btn-outline-secondary"
+        <!-- [변경]2026.11.24권성애 sort 추가 — 기록이 없을 때(새 탭 등)도 보던 페이지 · 카테고리 · 정렬로 -->
+        <a th:href="${listCategory != null}
+            ? @{/restaurants(category=${listCategory}, sort=${listSort}, page=${listPage})}
+            : (${listPage != null} ? @{/restaurants(sort=${listSort}, page=${listPage})} : @{/restaurants(sort=${listSort})})"
+           class="btn btn-outline-secondary"
        onclick="if (history.length > 1) { history.back(); return false; }">
         목록으로
     </a></div>
@@ -492,11 +496,8 @@
 			    reviewMoreLoading = true;
 			    reviewMoreBtn.disabled = true;
 			    reviewMoreMessage.textContent = '리뷰를 불러오는 중입니다...';
-			    const query = '?page=' + reviewPage + '&size=' + reviewPageSize + '&sort=' + (reviewSortSelect ? reviewSortSelect.value : 'latest');
-			    fetchJson('/api/reviews/restaurant/' + restaurantId + query, { method: 'GET' }).then(function (r) {
-			        if (!r.ok) return fetchJson('/api/reviews?restaurantId=' + restaurantId + '&page=' + reviewPage + '&size=' + reviewPageSize, { method: 'GET' });
-			        return r;
-			    }).then(function (r) {
+    const query = '?page=' + reviewPage + '&size=' + reviewPageSize;
+    fetchJson('/api/reviews/restaurant/' + restaurantId + query, { method: 'GET' }).then(function (r) {
 			        if (!r.ok) throw new Error(r.body && r.body.error || '리뷰를 불러오지 못했습니다.');
 			        const page = reviewPageItems(r.body);
 			        page.items.forEach(appendReviewPageItem);
@@ -590,6 +591,14 @@ function uploadReviewImage() {
     });
 }
 
+function cleanupUploadedReviewImage() {
+    if (!reviewImageUrl) return Promise.resolve();
+    const url = reviewImageUrl;
+    reviewImageUrl = null;
+    return fetchJson('/api/files/uploaded?url=' + encodeURIComponent(url), { method: 'DELETE' })
+        .catch(function () { /* 등록 실패 알림이 우선이며 정리 실패는 서버 로그로 확인 */ });
+}
+
 
 /* ── C 리뷰: 작성 (사진 업로드 → POST /api/reviews) ── */
 function submitReview() {
@@ -623,11 +632,15 @@ function submitReview() {
             })        });
     }).then(function (r) {
         if (r.ok) { window.location.reload(); return; }
-        alert(r.body.error || '리뷰 등록에 실패했습니다.');
-        btn.disabled = false;
+        return cleanupUploadedReviewImage().then(function () {
+            alert(r.body.error || '리뷰 등록에 실패했습니다.');
+            btn.disabled = false;
+        });
     }).catch(function (e) {
-        alert(e.message || '서버 오류가 발생했습니다.');
-        btn.disabled = false;
+        cleanupUploadedReviewImage().finally(function () {
+            alert(e.message || '서버 오류가 발생했습니다.');
+            btn.disabled = false;
+        });
     });
 
 
@@ -646,8 +659,16 @@ document.querySelectorAll('.btn-review-delete').forEach(function (btn) {
 });
 	document.querySelectorAll('.btn-report').forEach(function (btn) {
     btn.addEventListener('click', function () {
-        if (!confirm('이 리뷰를 신고하시겠습니까?')) return;
-        fetchJson('/api/reviews/' + this.getAttribute('data-id') + '/report', { method: 'POST' })
+        const reason = prompt('신고 사유를 입력해 주세요. (예: 광고, 욕설·비방, 허위 내용 / 100자 이내)');
+        if (reason === null) return;   // 취소 버튼
+        const trimmedReason = reason.trim();
+        if (!trimmedReason) { alert('신고 사유를 입력해 주세요.'); return; }
+        if (trimmedReason.length > 100) { alert('신고 사유는 100자 이하로 입력해 주세요.'); return; }
+        fetchJson('/api/reviews/' + this.getAttribute('data-id') + '/report', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ reason: trimmedReason })
+        })
             .then(function (r) { alert(r.body.message || r.body.error || '처리되었습니다.'); });
     });
 	});

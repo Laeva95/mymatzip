@@ -1,3 +1,4 @@
+// [C수정] 리뷰 컬렉션 배치 로딩 및 기존 DB 매핑 복원
 package com.example.mymatzip.entity; // 이 파일이 속한 패키지(폴더) 선언
 // com.example.mymatzip.entity = entity 패키지 안에 있다는 뜻
 // 같은 패키지 안의 Member.java, Restaurant.java를 import 없이 바로 사용 가능
@@ -7,6 +8,10 @@ package com.example.mymatzip.entity; // 이 파일이 속한 패키지(폴더) �
 // 다른 패키지에 있는 클래스를 이 파일에서 사용하기 위해 가져옵니다.
 // ──────────────────────────────────────────────────────────
 
+
+import java.util.HashSet;
+import java.util.LinkedHashSet;
+import java.util.Set;
 import jakarta.persistence.*;
 import org.hibernate.annotations.BatchSize;
 import org.hibernate.annotations.OnDelete;
@@ -224,6 +229,10 @@ public class Review {
     @Column(length = 500)
     private String aiSpamReason;
 
+    // 사용자가 신고할 때 적은 사유 (선택값, 최대 100자). AI 판정 근거(aiSpamReason)와는 별개
+    @Column(length = 100)
+    private String reportReason;
+
     // ──────────────────────────────────────────────────────────
     // 생성자(Constructor) 영역
     // ──────────────────────────────────────────────────────────
@@ -295,13 +304,29 @@ public class Review {
         this.reported = true;
     }
 
+    // 사유와 함께 신고 (사유는 서비스에서 다듬어서 넘겨줌, 없으면 null)
+    public void report(String reason) {
+        this.reported = true;
+        this.reportReason = reason;
+    }
+
     // AI 스팸 판정 시 기존 신고 큐를 재사용해 관리자에게 자동 신고
     public void reportAsSpam(String reason) {
         this.reported = true;
         this.aiSpam = true;
         this.aiSpamReason = reason;
     }
-    // [추가] 리뷰 도움돼요를 누른 회원 ID 목록
+
+    // [추가] 신고 기록 삭제(해제) 메서드
+    // 관리자 > 리뷰 관리 > "신고된 리뷰"에서 휴지통 버튼을 누르면 호출됩니다.
+    // 리뷰 자체는 그대로 두고 reported 값만 false로 되돌려 신고 목록에서만 빠지게 합니다.
+    public void clearReport() {
+        this.reported = false;
+        this.aiSpam = false;
+        this.aiSpamReason = null;
+        this.reportReason = null;
+    }
+    // [추가] 도움돼요를 누른 회원 ID 목록 (중복 방지용 Set)
     @ElementCollection(fetch = FetchType.LAZY)
     @BatchSize(size = 50)
     @CollectionTable(
@@ -312,9 +337,9 @@ public class Review {
             )
     )
     @Column(name = "member_id", nullable = false)
-    private java.util.Set<Long> helpfulMemberIds = new java.util.HashSet<>();
+    private Set<Long> helpfulMemberIds = new HashSet<>();
 
-    // [추가] 리뷰 키워드 태그 목록
+    // [추가] 리뷰 키워드 태그 목록 (순서 유지를 위해 LinkedHashSet 사용)
     @ElementCollection(fetch = FetchType.LAZY)
     @BatchSize(size = 50)
     @CollectionTable(
@@ -325,31 +350,20 @@ public class Review {
             )
     )
     @Column(name = "keyword", nullable = false, length = 50)
-    private java.util.Set<String> keywordTags = new java.util.LinkedHashSet<>();
+    private Set<String> keywordTags = new LinkedHashSet<>();
 
-    // [추가] 신고 기록 삭제(해제) 메서드
-    // 관리자 > 리뷰 관리 > "신고된 리뷰"에서 휴지통 버튼을 누르면 호출됩니다.
-    // 리뷰 자체는 그대로 두고 reported 값만 false로 되돌려 신고 목록에서만 빠지게 합니다.
-    public void clearReport() {
-        this.reported = false;
-        this.aiSpam = false;
-        this.aiSpamReason = null;
-    }
-    // [추가] 도움돼요 등록 (이미 누른 회원이면 false)
-    public boolean addHelpful(Long memberId) {
-        return helpfulMemberIds.add(memberId);
-    }
-
-    // [추가] 도움돼요 취소
-    public void removeHelpful(Long memberId) {
-        helpfulMemberIds.remove(memberId);
-    }
-
-    // [추가] 리뷰 키워드 교체
     public void changeKeywordTags(java.util.Collection<String> keywords) {
         this.keywordTags.clear();
         if (keywords != null) {
             this.keywordTags.addAll(keywords);
         }
+    }
+
+    public boolean addHelpful(Long id) {
+        return helpfulMemberIds.add(id);
+    }
+
+    public void removeHelpful(Long id) {
+        helpfulMemberIds.remove(id);
     }
 }

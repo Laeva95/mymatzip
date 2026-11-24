@@ -1,3 +1,4 @@
+// [C수정] AI 판정 트랜잭션 경계 및 리뷰 저장 흐름 수정
 package com.example.mymatzip.service;
 
 import com.example.mymatzip.dto.PageResponse;
@@ -9,12 +10,16 @@ import com.example.mymatzip.entity.Review;
 import com.example.mymatzip.entity.Role;
 import com.example.mymatzip.repository.RestaurantRepository;
 import com.example.mymatzip.repository.ReviewRepository;
+import com.example.mymatzip.service.ai.AiReviewSpamDetectionService;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
@@ -35,6 +40,20 @@ public class ReviewService {
     private final ReviewRepository reviewRepository;
     private final RestaurantRepository restaurantRepository;
     private final FileService fileService;
+    // AI 리뷰 스팸 판별 서비스
+    private final AiReviewSpamDetectionService aiReviewSpamDetectionService;
+
+    // AI 호출이 끝난 뒤 저장 구간에서만 트랜잭션을 연다.
+    private TransactionTemplate transactionTemplate;
+    private TransactionTemplate aiOutsideTransactionTemplate;
+
+    @Autowired
+    void configureTransactionTemplate(PlatformTransactionManager transactionManager) {
+        this.transactionTemplate = new TransactionTemplate(transactionManager);
+        this.aiOutsideTransactionTemplate = new TransactionTemplate(transactionManager);
+        this.aiOutsideTransactionTemplate.setPropagationBehavior(
+                org.springframework.transaction.TransactionDefinition.PROPAGATION_NOT_SUPPORTED);
+    }
 
     public List<ReviewResponse> findByRestaurantId(Long restaurantId) {
         return findByRestaurantId(restaurantId, (Member) null);
@@ -89,21 +108,55 @@ public class ReviewService {
             }
         }
 
-        Review review = Review.builder()
-                .content(form.getContent())
-                .rating(form.getRating())
-                .imageUrl(form.getImageUrl())
-                .restaurant(restaurant)
-                .member(loginMember)
-                .build();
+        // 명확한 스팸(BLOCK)은 DB에 저장하지 않는다.
+        // 애매한 스팸(SPAM)만 저장 후 관리자 의심 목록에 남긴다.
+        AiReviewSpamDetectionService.Result spamResult =
+                detectOutsideTransaction(form.getContent());
+        if (spamResult.blocked()) {
+            throw new IllegalArgumentException("스팸으로 확정된 리뷰는 등록할 수 없습니다. "
+                    + spamResult.reason());
+        }
 
-        // [추가] 리뷰 키워드 저장
-        review.changeKeywordTags(new LinkedHashSet<>(selectedKeywords));
+        return persistReview(form, selectedKeywords, loginMember, restaurant, spamResult);
+    }
 
-        restaurant.clearAiSummary();
+    private AiReviewSpamDetectionService.Result detectOutsideTransaction(String content) {
+        if (aiOutsideTransactionTemplate == null) {
+            return aiReviewSpamDetectionService.detect(content);
+        }
+        return aiOutsideTransactionTemplate.execute(status -> aiReviewSpamDetectionService.detect(content));
+    }
 
-        Review savedReview = reviewRepository.save(review);
-        return ReviewResponse.from(savedReview, loginMember.getId());
+    private ReviewResponse persistReview(ReviewForm form, List<String> selectedKeywords,
+                                         Member loginMember,
+                                         Restaurant restaurant,
+                                         AiReviewSpamDetectionService.Result spamResult) {
+        java.util.function.Supplier<ReviewResponse> operation = () -> {
+            Restaurant managedRestaurant = restaurant;
+            if (transactionTemplate != null) {
+                managedRestaurant = restaurantRepository.findByIdAndDeletedAtIsNull(form.getRestaurantId())
+                        .orElse(restaurant);
+            }
+            managedRestaurant.clearAiSummary();
+
+            Review review = Review.builder()
+                    .content(form.getContent())
+                    .rating(form.getRating())
+                    .imageUrl(form.getImageUrl())
+                    .restaurant(managedRestaurant)
+                    .member(loginMember)
+                    .build();
+            review.changeKeywordTags(new LinkedHashSet<>(selectedKeywords));
+
+            Review savedReview = reviewRepository.save(review);
+            if (spamResult.spam()) {
+                savedReview.reportAsSpam(spamResult.reason());
+            }
+            return ReviewResponse.from(savedReview, loginMember.getId());
+        };
+
+        // 단위 테스트처럼 스프링 컨테이너 밖에서 호출되는 경우에도 동작하도록 직접 실행한다.
+        return transactionTemplate == null ? operation.get() : transactionTemplate.execute(status -> operation.get());
     }
 
     @Transactional
@@ -177,7 +230,7 @@ public class ReviewService {
     }
 
     @Transactional
-    public void report(Long id, Member loginMember) {
+    public void report(Long id, Member loginMember, String reason) {
         if (loginMember == null) {
             throw new IllegalArgumentException("로그인이 필요한 서비스입니다.");
         }
@@ -194,6 +247,15 @@ public class ReviewService {
             throw new IllegalArgumentException("이미 신고된 리뷰입니다.");
         }
 
-        review.report();
+        // 신고 사유: 앞뒤 공백 제거, 비어 있으면 null, 100자 초과는 거절
+        String cleanedReason = (reason == null) ? null : reason.trim();
+        if (cleanedReason != null && cleanedReason.isEmpty()) {
+            cleanedReason = null;
+        }
+        if (cleanedReason != null && cleanedReason.length() > 100) {
+            throw new IllegalArgumentException("신고 사유는 100자 이하로 입력해 주세요.");
+        }
+
+        review.report(cleanedReason);
     }
 }
