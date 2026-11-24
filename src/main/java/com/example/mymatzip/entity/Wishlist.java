@@ -79,6 +79,16 @@ import java.time.LocalDateTime;
 //   테이블명: 클래스명(Wishlist) → 소문자 "wishlist"로 자동 변환
 @Entity
 
+// [추가]2026.11.24정운학 같은 회원이 같은 맛집을 두 번 찜하지 못하게 DB 에서 막음 (UNIQUE 제약)
+//   WishlistService.add() 의 "이미 찜했는지 확인 → 저장"은 요청 두 개가 동시에 오면 둘 다 확인을 통과할 수 있음
+//   (탭 두 개 · 하트 빠르게 두 번 · 직접 API 호출) → 이 제약이 두 번째 저장을 거부 → 컨트롤러가 409 로 응답
+//   배포 DB 에는 2026.11.24 에 직접 추가함:
+//     ALTER TABLE wishlist ADD CONSTRAINT uk_wishlist_member_restaurant UNIQUE (member_id, restaurant_id);
+//   여기 적어 두면 DDL_AUTO=create(테이블 새로 만들기) · 테스트용 H2 에도 같은 제약이 생김
+@Table(uniqueConstraints = @UniqueConstraint(
+        name = "uk_wishlist_member_restaurant",
+        columnNames = {"member_id", "restaurant_id"}))
+
 // @Getter: 모든 필드의 getXxx() 메서드를 Lombok이 자동 생성
 //   getId(), getMember(), getRestaurant(), getCreatedAt() -- 총 4개 자동 생성
 @Getter

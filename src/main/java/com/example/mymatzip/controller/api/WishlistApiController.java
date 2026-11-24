@@ -49,6 +49,7 @@ import com.example.mymatzip.service.WishlistService;
 import lombok.RequiredArgsConstructor;
 
 // HttpStatus: HTTP 상태 코드 열거형 (200, 201, 400 등)
+import org.springframework.dao.DataIntegrityViolationException;   // [추가]2026.11.24정운학 UNIQUE 제약 위반 (동시 찜)
 import org.springframework.http.HttpStatus;
 
 // ResponseEntity: HTTP 응답 전체(상태코드 + 본문)를 담는 객체
@@ -212,6 +213,13 @@ public class WishlistApiController {
 
             return ResponseEntity.status(status)
                     .body(Map.of("error", e.getMessage()));
+        } catch (DataIntegrityViolationException e) {
+            // [추가]2026.11.24정운학 동시에 들어온 두 번째 찜 요청
+            //   두 요청이 모두 "이미 찜했는지 확인"을 통과한 뒤, 늦게 저장한 쪽을 DB UNIQUE 제약
+            //   (Wishlist 의 uk_wishlist_member_restaurant)이 거부함 → 이미 찜한 것과 같으므로 409
+            //   화면(wishlist-heart.js)은 409 를 받으면 하트를 찜 상태로 칠함
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(Map.of("error", "이미 찜한 맛집입니다."));
         }
     }
 

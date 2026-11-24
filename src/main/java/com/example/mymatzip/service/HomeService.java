@@ -4,18 +4,21 @@ import com.example.mymatzip.dto.RestaurantResponse;
 import com.example.mymatzip.entity.Restaurant;
 import com.example.mymatzip.repository.RestaurantRepository;
 import com.example.mymatzip.repository.ReviewRepository;
+import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 // ============================================================
 // [HomeService.java] 메인 화면(home.html) 전용 조회 (팀장 담당)
 // ============================================================
-// 사용처: HomeController.home() (GET /)
+// 사용처: HomeController.home() (GET /) — 최근 등록된 맛집 카드
+//         AiRecommendService.recommend()  — AI 추천 카드 (findByIdsWithReviewCountAndWishlist)
 //
 // 최근 등록된 맛집 6개 + 카드에 보여줄 별점 · 리뷰 수 · 찜 수
 //   맛집 목록(list.html) 카드와 같은 값을 보여주려고, RestaurantService.listWithReviewCountAndWishlist()
@@ -36,9 +39,35 @@ public class HomeService {
 
     private final RestaurantRepository restaurantRepository;
     private final ReviewRepository reviewRepository;
+    private final EntityManager entityManager;   // AI 추천 맛집을 작성자와 함께 조회할 때 (아래 findByIdsWithReviewCountAndWishlist)
 
+    // 최근 등록된 맛집 6개 (home.html "최근 등록된 맛집" 카드)
     public List<RestaurantResponse> findLatest6WithReviewCountAndWishlist() {
-        List<Restaurant> restaurants = restaurantRepository.findTop6ByDeletedAtIsNullOrderByCreatedAtDesc();
+        return withReviewCountAndWishlist(restaurantRepository.findTop6ByDeletedAtIsNullOrderByCreatedAtDesc());
+    }
+
+    // 이미 고른 맛집들(id 목록)을 리뷰 수 · 찜 수가 채워진 응답으로 다시 만들기
+    //   사용처: AiRecommendService.recommend() — AI 가 고른 맛집(최대 3곳)을 홈 카드에 개수와 함께 보여줄 때
+    //   반환: id → 응답 Map (삭제된 맛집 등 못 찾은 id 는 Map 에 없음 → 부르는 쪽이 원래 응답을 그대로 씀)
+    //   쿼리: 맛집 1 (작성자 join fetch) + 별점 · 리뷰 수 1 + 찜 수 1 = 3번 (고른 맛집 수와 상관없이 고정)
+    //   맛집 조회를 Repository 가 아니라 EntityManager 로 하는 이유:
+    //     findAllById() 는 작성자(member)를 따로 읽어서 맛집마다 쿼리가 늘어남(N+1).
+    //     작성자를 같이 가져오는 메서드를 RestaurantRepository(다른 팀원 파일)에 추가하지 않으려고 여기서 JPQL 로 조회
+    public Map<Long, RestaurantResponse> findByIdsWithReviewCountAndWishlist(List<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return Map.of();
+        }
+        List<Restaurant> restaurants = entityManager.createQuery(
+                        "SELECT r FROM Restaurant r JOIN FETCH r.member WHERE r.id IN :ids AND r.deletedAt IS NULL",
+                        Restaurant.class)
+                .setParameter("ids", ids)
+                .getResultList();
+        return withReviewCountAndWishlist(restaurants).stream()
+                .collect(Collectors.toMap(RestaurantResponse::getId, Function.identity()));
+    }
+
+    // 맛집 목록 → 응답 목록 (별점 · 리뷰 수 · 찜 수를 각각 쿼리 1번으로, 맛집 순서는 그대로)
+    private List<RestaurantResponse> withReviewCountAndWishlist(List<Restaurant> restaurants) {
         if (restaurants.isEmpty()) {
             return List.of();                                       // IN () 빈 목록 방지
         }

@@ -128,6 +128,15 @@ AI 추천: 아래 추천 폼 → fetch POST /api/ai/recommend → AiApiControlle
                      th:attr="data-default=${restaurant.defaultImageUrl}"
                      onerror="this.onerror=null;this.src=this.dataset.default;"
                      class="card-img-top" style="height:180px;object-fit:cover;">
+                <!--/* 썸네일 오른쪽 위 하트(찜) 버튼 — 맛집 목록(list.html) 카드와 같은 마크업
+                       모양은 wishlist-heart.js 의 wishHeartButtonHtml() 과 같다 (D 찜 담당 스크립트를 그대로 사용, 수정 없음)
+                       처음엔 빈 하트, 화면이 열리면 아래 WishHeart.init() 이 GET /api/wishlists 로 내 찜 상태를 칠한다 */-->
+                <button type="button" class="btn btn-light btn-sm rounded-circle shadow-sm wish-heart"
+                        th:attr="data-restaurant-id=${restaurant.id}" data-wished="false"
+                        aria-pressed="false" aria-label="찜하기" title="찜하기"
+                        style="position:absolute;top:8px;right:8px;z-index:2;width:36px;height:36px;padding:0;">
+                    <i class="bi bi-heart text-danger"></i>
+                </button>
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-items-start mb-2">
                         <h5 class="card-title mb-0">
@@ -170,10 +179,36 @@ AI 추천: 아래 추천 폼 → fetch POST /api/ai/recommend → AiApiControlle
 
 <th:block th:replace="~{fragments/layout :: footer}"></th:block>
 
+<!--/* 카드 하트(찜) 버튼: 맛집 목록과 같은 스크립트 · 스타일 (D 찜 담당 파일, 불러오기만 함)
+       기존 찜 API 재사용 — GET /api/wishlists(내 찜 상태), POST · DELETE /api/wishlists/{id}
+       loggedIn=false 면 하트를 눌렀을 때 로그인 안내 (최근 맛집 카드는 비로그인에게도 보임) */-->
+<link th:href="@{/css/wishlist-heart.css}" rel="stylesheet">
+<script th:src="@{/js/wishlist-heart.js}"></script>
+<script th:inline="javascript">
+    WishHeart.init({ loggedIn: /*[[${loginMember != null}]]*/ false });
+</script>
+<script>
+    /* 같은 맛집 하트가 두 개일 때(최근 등록된 맛집 + AI 추천) 동시 클릭 막기
+       wishlist-heart.js 는 "누른 버튼"만 잠가서(data-busy), 한쪽 요청이 끝나기 전에 다른 쪽 하트를 누르면
+       같은 찜 요청이 두 번 나감 → 서버는 DB UNIQUE 제약 + 409 로 막지만, 불필요한 요청 · 안내창을 화면에서 먼저 막음
+       capture(true) : WishHeart 의 클릭 처리(버블링 단계)보다 먼저 실행됨 → 막으면 WishHeart 까지 가지 않음
+       wishlist-heart.js(D 찜 담당)는 수정하지 않음 */
+    document.addEventListener('click', function (e) {
+        const btn = e.target.closest('.wish-heart');
+        if (!btn) return;
+        const id = btn.getAttribute('data-restaurant-id');
+        const busy = document.querySelector('.wish-heart[data-restaurant-id="' + id + '"][data-busy="true"]');
+        if (busy && busy !== btn) {
+            e.preventDefault();             // 카드 링크(상세로 이동)도 막음
+            e.stopImmediatePropagation();   // WishHeart 의 클릭 처리까지 가지 않음
+        }
+    }, true);
+</script>
+
 <script>
     /* AI 맛집 추천 (D 담당)
        요청: POST /api/ai/recommend  본문 {"question": "..."}
-       응답: { picks: [ { restaurant: {...RestaurantResponse}, reason: "..." } ], remaining: 4 }
+       응답: { picks: [ { restaurant: {...RestaurantResponse, reviewCount, wishlistCount}, reason: "..." } ], remaining: 4 }
        AI 가 쓴 글(reason)과 맛집 정보는 모두 esc() 로 이스케이프해서 넣는다. */
     const aiForm = document.getElementById('aiForm');
     if (aiForm) {
@@ -206,11 +241,16 @@ AI 추천: 아래 추천 폼 → fetch POST /api/ai/recommend → AiApiControlle
                 }
                 msg.textContent = '오늘 남은 AI 사용 횟수: ' + r.body.remaining + '회';
                 result.innerHTML = r.body.picks.map(function (p) {
-                    // 세 번째 값 true: 사진이 없거나 깨지면 카테고리 기본 이미지 (아래 "최근 등록된 맛집" 카드와 같게)
+                    // 세 번째 값: 아래 "최근 등록된 맛집" 카드와 같게
+                    //   defaultImage : 사진이 없거나 깨지면 카테고리 기본 이미지
+                    //   counts       : 별점 옆 리뷰 수 · 찜 수 (AiRecommendService 가 채워 보냄)
+                    //   wishHeart    : 썸네일 오른쪽 위 하트(찜) 버튼
                     return restaurantCardHtml(p.restaurant,
                         '<div class="alert alert-light border mt-3 mb-0 small"><i class="bi bi-robot"></i> ' + esc(p.reason) + '</div>',
-                        true);
+                        { defaultImage: true, counts: true, wishHeart: true });
                 }).join('');
+                // 새로 그린 카드의 하트를 내 찜 상태로 칠함 (처음 화면에서 받아 둔 찜 목록 기준)
+                WishHeart.refresh();
             }).catch(function () {
                 btn.disabled = false;
                 msg.className = 'small mt-2 text-danger';

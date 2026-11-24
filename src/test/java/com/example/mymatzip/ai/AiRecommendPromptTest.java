@@ -2,6 +2,7 @@ package com.example.mymatzip.ai;
 
 import com.example.mymatzip.dto.RestaurantResponse;
 import com.example.mymatzip.entity.Category;
+import com.example.mymatzip.service.HomeService;
 import com.example.mymatzip.service.RestaurantService;
 import com.example.mymatzip.service.ai.AiRecommendService;
 import com.example.mymatzip.service.ai.AiUsageLimiter;
@@ -42,7 +43,7 @@ class AiRecommendPromptTest {
         RestaurantService restaurantService = mock(RestaurantService.class);
         when(restaurantService.findAllAvoidNPlusOne()).thenReturn(List.of(soup));
         limiter = new AiUsageLimiter(2);
-        service = new AiRecommendService(builder, restaurantService, limiter);
+        service = new AiRecommendService(builder, restaurantService, limiter, mock(HomeService.class));
     }
 
     @Test

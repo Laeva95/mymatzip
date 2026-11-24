@@ -41,6 +41,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 // [HomeServiceQueryCountTest] 메인 화면 최근 맛집 6개 — 쿼리 수 · 개수 검증 (팀장 담당)
 // ============================================================
 // 대상: HomeService.findLatest6WithReviewCountAndWishlist() (HomeController.home() 이 사용)
+//       HomeService.findByIdsWithReviewCountAndWishlist()   (AiRecommendService 가 AI 추천 카드에 사용)
 //
 // 확인하는 것
 //   ① 쿼리 수가 3번으로 고정 (맛집 1 + 별점 · 리뷰 수 1 + 찜 수 1)
@@ -215,6 +216,32 @@ class HomeServiceQueryCountTest {
         Map<Long, RestaurantResponse> beforeById = before.stream()
                 .collect(Collectors.toMap(RestaurantResponse::getId, Function.identity()));
         assertThat(beforeById.values()).allSatisfy(r -> assertThat(r.getWishlistCount()).isNull());
+    }
+
+    @Test
+    @DisplayName("④ AI 추천 맛집(id 목록) + 리뷰 수 · 찜 수 — 쿼리 3번 고정, 없는 id 는 빠짐")
+    void findByIdsForAiPicks() {
+        // AI 가 3곳을 고른 상황 + 없는 번호 하나 (AiRecommendService 는 못 찾은 id 면 원래 응답을 씀)
+        List<Long> pickedIds = List.of(restaurants.get(1).getId(), restaurants.get(4).getId(),
+                restaurants.get(7).getId(), -1L);
+
+        Map<Long, RestaurantResponse> result = new HashMap<>();
+        long queries = countQueries(() -> result.putAll(homeService.findByIdsWithReviewCountAndWishlist(pickedIds)));
+
+        System.out.println("[HomeService] findByIdsWithReviewCountAndWishlist() 고른 맛집 " + result.size()
+                + "곳, 쿼리 " + queries + "번");
+        assertThat(queries)
+                .as("맛집 + 작성자 1 (join fetch) + 별점 · 리뷰 수 1 + 찜 수 1 = 3번 (작성자를 따로 읽으면 N+1)")
+                .isEqualTo(3);
+        assertThat(result).hasSize(3).doesNotContainKey(-1L);
+        for (RestaurantResponse r : result.values()) {
+            assertThat(r.getReviewCount()).as(r.getName() + " 리뷰 수").isEqualTo(expectedReviewCount.get(r.getId()));
+            assertThat(r.getWishlistCount()).as(r.getName() + " 찜 수").isEqualTo(expectedWishlistCount.get(r.getId()));
+            assertThat(r.getMemberNickname()).isEqualTo(members.get(0).getNickname());
+        }
+
+        // 빈 목록이면 쿼리 없이 빈 결과
+        assertThat(countQueries(() -> homeService.findByIdsWithReviewCountAndWishlist(List.of()))).isZero();
     }
 
     // 읽기 전용 트랜잭션 하나 안에서 실행하고, 그동안 DB 에 보낸 SQL 수를 돌려줌
