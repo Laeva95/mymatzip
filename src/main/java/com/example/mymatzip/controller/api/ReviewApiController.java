@@ -188,7 +188,8 @@ public class ReviewApiController {
     @PostMapping("/{id}/report")
     public ResponseEntity<Map<String, String>> report(
             @PathVariable Long id,
-            @LoginMember Member loginMember) {
+            @LoginMember Member loginMember,
+            @RequestBody(required = false) Map<String, String> body) {
 
         // 1단계: 비로그인 사용자 방어 (401 Unauthorized)
         if (loginMember == null) {
@@ -198,7 +199,8 @@ public class ReviewApiController {
 
         try {
             // 2단계: 리뷰 신고 처리 및 200 OK 반환
-            reviewService.report(id, loginMember);
+            String reason = (body == null) ? null : body.get("reason");
+            reviewService.report(id, loginMember, reason);
             return ResponseEntity.ok(
                     Map.of("message", "리뷰가 신고되었습니다.")
             );

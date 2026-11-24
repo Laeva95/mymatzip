@@ -175,6 +175,36 @@ public class IssueVerificationTest {
                 .andExpect(status().is4xxClientError());
     }
 
+    @Test
+    @DisplayName("[이슈 5-3] 신고 사유가 앞뒤 공백 제거 후 저장되는지 검증")
+    void verifyIssue5_SaveReportReason() throws Exception {
+        Long reviewId = (Long) ReflectionTestUtils.getField(savedReview, "id");
+
+        mockMvc.perform(post("/api/reviews/{id}/report", reviewId)
+                        .with(loginAs(otherMember))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"reason\":\"  광고성 리뷰  \"}"))
+                .andExpect(status().isOk());
+
+        Review reported = reviewRepository.findById(reviewId).orElseThrow();
+        assertThat(reported.isReported()).isTrue();
+        assertThat(reported.getReportReason()).isEqualTo("광고성 리뷰");
+    }
+
+    @Test
+    @DisplayName("[이슈 5-4] 100자 초과 신고 사유는 400으로 차단되고 신고 표시가 남지 않는지 검증")
+    void verifyIssue5_BlockTooLongReportReason() throws Exception {
+        Long reviewId = (Long) ReflectionTestUtils.getField(savedReview, "id");
+
+        mockMvc.perform(post("/api/reviews/{id}/report", reviewId)
+                        .with(loginAs(otherMember))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"reason\":\"" + "가".repeat(101) + "\"}"))
+                .andExpect(status().isBadRequest());
+
+        assertThat(reviewRepository.findById(reviewId).orElseThrow().isReported()).isFalse();
+    }
+
     // =========================================================================
     // [6번 이슈] 리뷰 작성 - imageUrl 길이(255자 초과) 및 URL 형식 검증
     // =========================================================================

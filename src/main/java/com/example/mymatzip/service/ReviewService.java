@@ -230,7 +230,7 @@ public class ReviewService {
     }
 
     @Transactional
-    public void report(Long id, Member loginMember) {
+    public void report(Long id, Member loginMember, String reason) {
         if (loginMember == null) {
             throw new IllegalArgumentException("로그인이 필요한 서비스입니다.");
         }
@@ -247,6 +247,15 @@ public class ReviewService {
             throw new IllegalArgumentException("이미 신고된 리뷰입니다.");
         }
 
-        review.report();
+        // 신고 사유: 앞뒤 공백 제거, 비어 있으면 null, 100자 초과는 거절
+        String cleanedReason = (reason == null) ? null : reason.trim();
+        if (cleanedReason != null && cleanedReason.isEmpty()) {
+            cleanedReason = null;
+        }
+        if (cleanedReason != null && cleanedReason.length() > 100) {
+            throw new IllegalArgumentException("신고 사유는 100자 이하로 입력해 주세요.");
+        }
+
+        review.report(cleanedReason);
     }
 }
