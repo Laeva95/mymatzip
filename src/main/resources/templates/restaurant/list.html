@@ -17,7 +17,24 @@
 */-->
 <html lang="ko" xmlns:th="http://www.thymeleaf.org">
 <head th:replace="~{fragments/layout :: head('맛집 목록')}"></head>
+
 <body>
+
+<style>
+    /* [변경]2026.11.23권성애 sort 추가 — 위아래 간격 · 글자 크기 키우고, 고른 정렬은 주황 글자 + 주황 밑줄 */
+    .sort-bar { display: flex; justify-content: space-between; align-items: center;
+        margin: 20px 0 24px; padding-top: 16px; border-top: 1px solid #e1e5ea; }
+    .sort-count { color: #57606a; font-size: 16px; }
+    .sort-count b { color: #1f2328; }
+    .sort-link { margin-left: 22px; padding: 6px 2px; color: #57606a; font-size: 16px;
+        text-decoration: none; border-bottom: 3px solid transparent; }
+    .sort-link:hover { color: #1f2328; }
+    .sort-link.active { color: #e8692e; font-weight: 700; border-bottom-color: #e8692e; }
+
+    /* [추가]2026.11.23권성애 sort 추가 — 카드 리뷰 수 · 찜 수 (목록 카드 · 검색 카드 공통) */
+    .card-counts { color: #6b7280; font-size: 13px; margin-left: 6px; }
+</style>
+
 <nav th:replace="~{fragments/layout :: header}"></nav>
 <main class="container mb-5">
 <!--/* [추가] 썸네일 하트 버튼을 흰 원 가운데에 맞추는 스타일 (일반 카드 · 검색 결과 카드 공통) */-->
@@ -33,7 +50,8 @@
 <div class="row mb-3">
     <div class="col-md-6">
         <form id="searchForm" class="d-flex gap-2">
-            <input type="text" id="keyword" class="form-control" placeholder="맛집 이름 또는 주소 검색...">
+            <!-- [추가]2026.11.23권성애 sort 추가 — 다시 들어올 때 브라우저가 검색어를 되살리지 않게 -->
+            <input type="text" id="keyword" class="form-control" placeholder="맛집 이름 검색" autocomplete="off">
             <button type="submit" class="btn btn-outline-primary"><i class="bi bi-search"></i></button>
         </form>
     </div>
@@ -41,17 +59,33 @@
 
 <div class="mb-4">
     <!--/* th:classappend : 선택된 카테고리가 없으면 '전체' 버튼을 채운 색(btn-primary)으로 */-->
-    <a th:href="@{/restaurants}" class="btn btn-sm me-1 mb-1"
+    <!-- [변경]2026.11.23권성애 sort 추가 — 분류 글자 크기를 정렬과 맞춤 (btn-sm 기본 14px → 16px) -->
+    <a th:href="@{/restaurants(sort=${selectedSort})}" class="btn btn-sm me-1 mb-1" style="font-size: 16px;"
        th:classappend="${selectedCategory == null} ? 'btn-primary' : 'btn-outline-primary'">전체</a>
     <!--/* th:each="cat : ${categories}" : Category enum 6개 반복.
            @{/restaurants(category=${cat})} → /restaurants?category=KOREAN (enum 이름이 들어감)
            ${cat.displayName} → Category.getDisplayName() → "한식" */-->
-    <a th:each="cat : ${categories}" th:href="@{/restaurants(category=${cat})}"
-       class="btn btn-sm me-1 mb-1"
+    <a th:each="cat : ${categories}" th:href="@{/restaurants(category=${cat}, sort=${selectedSort})}"
+       class="btn btn-sm me-1 mb-1" style="font-size: 16px;"
        th:classappend="${selectedCategory == cat} ? 'btn-primary' : 'btn-outline-primary'"
        th:text="${cat.displayName}">한식</a>
 </div>
 
+    <!-- [추가]2026.11.23권성애 sort 추가 — 맛집 수 + 정렬 (글자 + 주황 밑줄), 검색 중에는 JS 로 숨김 -->
+
+    <div class="sort-bar" id="sortBar">
+        <span class="sort-count">맛집 <b th:text="${totalCount}">0</b>곳</span>
+        <div>
+            <a class="sort-link" th:classappend="${selectedSort == 'latest'} ? 'active'"
+               th:href="${selectedCategory != null} ? @{/restaurants(category=${selectedCategory}, sort='latest')} : @{/restaurants(sort='latest')}">최신순</a>
+            <a class="sort-link" th:classappend="${selectedSort == 'rating'} ? 'active'"
+               th:href="${selectedCategory != null} ? @{/restaurants(category=${selectedCategory}, sort='rating')} : @{/restaurants(sort='rating')}">평점순</a>
+            <a class="sort-link" th:classappend="${selectedSort == 'review'} ? 'active'"
+               th:href="${selectedCategory != null} ? @{/restaurants(category=${selectedCategory}, sort='review')} : @{/restaurants(sort='review')}">리뷰 많은순</a>
+            <a class="sort-link" th:classappend="${selectedSort == 'wishlist'} ? 'active'"
+               th:href="${selectedCategory != null} ? @{/restaurants(category=${selectedCategory}, sort='wishlist')} : @{/restaurants(sort='wishlist')}">찜 많은순</a>
+        </div>
+    </div>
 <div class="row g-4" id="restaurantList">
     <div class="col-md-6 col-lg-4" th:each="r : ${restaurants}">
         <div class="card h-100">
@@ -88,6 +122,12 @@
                         <i class="bi" th:each="star : ${#numbers.sequence(1,5)}"
                            th:classappend="${star <= r.averageRating} ? 'bi-star-fill' : 'bi-star'"></i>
                         <span class="text-muted small ms-1" th:text="'(' + ${r.averageRating} + ')'">(0.0)</span>
+
+                        <!-- [추가]2026.11.23권성애 sort 추가 — 리뷰 수 · 찜 수 (값이 없으면 0) -->
+                        <span class="card-counts">
+                            <i class="bi bi-chat"></i> <span th:text="${r.reviewCount ?: 0}">0</span>
+                            · <i class="bi bi-heart"></i> <span th:text="${r.wishlistCount ?: 0}">0</span>
+                        </span>
                     </div>
                     <small class="text-muted" th:text="'by ' + ${r.memberNickname}">by 닉네임</small>
                 </div>
@@ -107,15 +147,18 @@
 <nav class="mt-4" aria-label="맛집 목록 페이지" th:if="${totalPages > 1}">
     <ul class="pagination justify-content-center">
         <!-- [변경]2026.11.19권성애 전체 페이지가 pageBlock(10) 이하이면 « 숨김 -->
+
+        <!-- [변경]2026.11.23권성애 sort 추가 — 페이지를 넘겨도 정렬 유지 -->
         <li class="page-item" th:if="${totalPages > pageBlock}"
             th:classappend="${startPage == 1} ? 'disabled'">
             <a class="page-link" aria-label="이전"
-               th:href="${selectedCategory != null} ? @{/restaurants(category=${selectedCategory}, page=${startPage - 1})} : @{/restaurants(page=${startPage - 1})}">&laquo;</a>
+               th:href="${selectedCategory != null} ? @{/restaurants(category=${selectedCategory}, sort=${selectedSort}, page=${startPage - 1})} : @{/restaurants(page=${startPage - 1})}">&laquo;</a>
         </li>
+        <!-- [변경]2026.11.23권성애 sort 추가 — 페이지를 넘겨도 정렬 유지 -->
         <li class="page-item" th:each="p : ${#numbers.sequence(startPage, endPage)}"
             th:classappend="${p == currentPage} ? 'active'">
             <a class="page-link" th:text="${p}"
-               th:href="${selectedCategory != null} ? @{/restaurants(category=${selectedCategory}, page=${p})} : @{/restaurants(page=${p})}">1</a>
+               th:href="${selectedCategory != null} ? @{/restaurants(category=${selectedCategory}, sort=${selectedSort}, page=${p})} : @{/restaurants(page=${p})}">1</a>
         </li>
         <!-- [변경]2026.11.19권성애 전체 페이지가 pageBlock(10) 이하이면 » 숨김 -->
         <li class="page-item" th:if="${totalPages > pageBlock}"
@@ -159,8 +202,15 @@ function restaurantCardHtmlAddBasicImage(r) {
     // 사진이 없어 사진 칸이 없는 카드 → 카드 맨 위에 기본 이미지 칸을 넣음 (restaurantCardHtml 의 사진 칸과 같은 class · style)
     const img = '<img src="' + esc(r.defaultImageUrl) + '"' + fallback +
         ' class="card-img-top" alt="" style="height:180px;object-fit:cover;">';
-    return html.replace('<div class="card h-100">', '<div class="card h-100">' + img);
+    // [추가]2026.11.23권성애 sort 추가 — 검색 카드 리뷰 수 · 찜 수 (값이 없으면 0)
+    const counts = ' <span class="card-counts"><i class="bi bi-chat"></i> ' + (item.reviewCount ?? 0)
+        + ' · <i class="bi bi-heart"></i> ' + (item.wishlistCount ?? 0) + '</span>';
+
+    return html.replace('<div class="card h-100">', '<div class="card h-100">' + img)
+        // [추가]2026.11.23권성애 sort 추가 — <div class="rating-stars">별점</div> 의 닫는 태그 바로 앞에 개수 넣기
+        .replace(/(<div class="rating-stars">[\s\S]*?)(<\/div>)/, '$1' + counts + '$2');
 }
+
 document.getElementById('searchForm').addEventListener('submit', function (e) {
     e.preventDefault();
     const keyword = document.getElementById('keyword').value.trim();
@@ -171,6 +221,12 @@ document.getElementById('searchForm').addEventListener('submit', function (e) {
             // [추가]2026.11.12권성애 검색 결과는 페이지를 나누지 않으므로 아래 페이지 번호를 숨김 (검색어를 지우고 다시 검색하면 /restaurants 로 돌아가 다시 보임)
             const pagination = document.querySelector('nav[aria-label="맛집 목록 페이지"]');
             if (pagination) pagination.classList.add('d-none');
+
+            // [추가]2026.11.23권성애 sort 추가 — 검색 중에는 정렬 줄도 숨김
+            const sortBar = document.getElementById('sortBar');
+            if (sortBar) sortBar.classList.add('d-none');
+
+
             const list = Array.isArray(r.body) ? r.body : [];
             if (list.length === 0) {
                 container.innerHTML = '<div class="col-12"><div class="alert alert-info text-center">검색 결과가 없습니다.</div></div>';
@@ -185,6 +241,13 @@ document.getElementById('searchForm').addEventListener('submit', function (e) {
             WishHeart.refresh();
         });
 });
+
+// [추가]2026.11.23권성애 sort 추가 — 목록에 다시 들어오면 검색칸 비우기 (화면은 전체 목록이므로 맞춤)
+window.addEventListener('pageshow', function () {
+    const input = document.getElementById('keyword');
+    if (input) input.value = '';
+});
+
 </script>
 </body>
 </html>

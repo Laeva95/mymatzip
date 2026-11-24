@@ -138,10 +138,20 @@ API (MyPageApiController)
                     <h5 class="card-title mb-3"><i class="bi bi-lock"></i> 비밀번호 변경</h5>
                     <div id="passwordMsg" class="alert d-none"></div>
                     <form id="passwordForm">
-                        <div class="mb-3"><label for="currentPassword" class="form-label">현재 비밀번호</label>
-                            <input type="password" class="form-control" id="currentPassword" required></div>
-                        <div class="mb-3"><label for="newPassword" class="form-label">새 비밀번호</label>
-                            <input type="password" class="form-control" id="newPassword" required></div>
+                        <!-- 새 비밀번호 확인 [11/23] 추가 -->
+                        <div class="mb-3">
+                            <label for="currentPassword" class="form-label">현재 비밀번호</label>
+                            <input type="password" class="form-control" id="currentPassword" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="newPassword" class="form-label">새 비밀번호</label>
+                            <input type="password" class="form-control" id="newPassword" minlength="4" maxlength="20" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="confirmPassword" class="form-label">새 비밀번호 확인</label>
+                            <input type="password" class="form-control" id="confirmPassword" minlength="4" maxlength="20" required>
+                            <div id="passwordMatchMsg" class="form-text"></div>
+                        </div>
                         <button type="submit" class="btn btn-warning"><i class="bi bi-check-circle"></i> 비밀번호 변경</button>
                     </form>
                 </div></div>
@@ -341,17 +351,68 @@ API (MyPageApiController)
         });
     });
 
+    // 동일 비밀번호 차단 + 확인 일치 검사 [11/23 추가]
+    const newPasswordInput = document.getElementById('newPassword');
+    const confirmPasswordInput = document.getElementById('confirmPassword');
+    const passwordMatchMsg = document.getElementById('passwordMatchMsg');
+
+    // 새 비밀번호 실시간 일치 여부 안내 [11/23 추가]
+    function checkPasswordMatch() {
+        const newPw = newPasswordInput.value;
+        const confirmPw = confirmPasswordInput.value;
+
+        if (!confirmPw) {
+            passwordMatchMsg.textContent = '';
+            passwordMatchMsg.className = 'form-text';
+            return;
+        }
+        if (newPw === confirmPw) {
+            passwordMatchMsg.textContent = '새 비밀번호가 일치합니다.';
+            passwordMatchMsg.className = 'form-text text-success';
+        } else {
+            passwordMatchMsg.textContent = '새 비밀번호가 일치하지 않습니다.';
+            passwordMatchMsg.className = 'form-text text-danger';
+        }
+    }
+
+    newPasswordInput.addEventListener('input', checkPasswordMatch);
+    confirmPasswordInput.addEventListener('input', checkPasswordMatch);
+
     document.getElementById('passwordForm').addEventListener('submit', function (e) {
         e.preventDefault();
+        const currentPassword = document.getElementById('currentPassword').value;
+        const newPassword = newPasswordInput.value;
+        const confirmPassword = confirmPasswordInput.value;
+
+        // 1. 현재 비밀번호와 새 비밀번호가 같은 경우 차단 [11/23 추가]
+        if (currentPassword === newPassword) {
+            showMsg('passwordMsg', false, '현재 비밀번호와 동일한 비밀번호로는 변경할 수 없습니다.');
+            newPasswordInput.focus();
+            return;
+        }
+
+        // 2. 새 비밀번호와 새 비밀번호 확인이 다른 경우 차단 [11/23 추가]
+        if (newPassword !== confirmPassword) {
+            showMsg('passwordMsg', false, '새 비밀번호와 새 비밀번호 확인이 일치하지 않습니다.');
+            confirmPasswordInput.focus();
+            return;
+        }
+
         fetchJson('/api/mypage/password', {
-            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json'},
             body: JSON.stringify({
-                currentPassword: document.getElementById('currentPassword').value,
-                newPassword: document.getElementById('newPassword').value
+                currentPassword: currentPassword,
+                newPassword: newPassword
             })
         }).then(function (r) {
             showMsg('passwordMsg', r.ok, r.ok ? r.body.message : (r.body.error || '변경에 실패했습니다.'));
-            if (r.ok) { document.getElementById('currentPassword').value = ''; document.getElementById('newPassword').value = ''; }
+            if (r.ok) {
+                document.getElementById('currentPassword').value = '';
+                newPasswordInput.value = '';
+                confirmPasswordInput.value = '';
+                passwordMatchMsg.textContent = '';
+            }
         });
     });
 

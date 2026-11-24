@@ -12,6 +12,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import jakarta.persistence.LockModeType;
 
+import java.util.Collection;
 import java.util.Optional;
 
 // ============================================================
@@ -22,6 +23,14 @@ public interface OwnerApplicationRepository extends JpaRepository<OwnerApplicati
     // 이미 심사 중인 신청이 있는지 (중복 신청 방지)
     // 예: existsByMemberIdAndStatus(회원ID, PENDING)
     boolean existsByMemberIdAndStatus(Long memberId, OwnerApplicationStatus status);
+
+    // 같은 사업자번호로 "다른 회원"이 심사 중이거나 승인받은 실제 신청이 있는지
+    //   (한 사업자로 여러 계정이 사장 권한을 받는 것 방지. 본인이 권한 해제 후 같은 번호로 다시 신청하는 것은 허용)
+    //   테스트 신청(testApplication = true)은 세지 않음 → 시연에서 쓴 번호가 실제 신청을 막지 않음
+    // 예: existsByBusinessNumberAndStatusInAndMemberIdNotAndTestApplicationFalse("1234567891", List.of(PENDING, APPROVED), 회원ID)
+    //   번호는 숫자만 저장되므로 숫자만으로 비교 (OwnerApplicationService.digitsOnly)
+    boolean existsByBusinessNumberAndStatusInAndMemberIdNotAndTestApplicationFalse(
+            String businessNumber, Collection<OwnerApplicationStatus> statuses, Long memberId);
 
     // 내 가장 최근 신청 1건 (신청 페이지에서 "심사 중 / 반려됨" 상태 표시용)
     Optional<OwnerApplication> findTopByMemberIdOrderByCreatedAtDesc(Long memberId);

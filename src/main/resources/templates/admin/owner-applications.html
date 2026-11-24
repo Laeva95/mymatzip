@@ -7,6 +7,8 @@ API: GET  /api/admin/owner-applications?status=PENDING|APPROVED|REJECTED&page=0&
      POST /api/admin/owner-applications/{id}/reject  { reason }
 화면 구성은 admin/reviews.html 과 같은 탭 방식 (심사 대기 / 승인 / 반려)
 목록에서는 주소·남긴 말·반려 사유를 한 줄 말줄임으로 보여주고, 행을 클릭하면 바로 아래에 전체 내용이 펼쳐짐
+사업자번호 아래 배지: 시연용 테스트 신청(testApplication)만 노란 "테스트 신청" 배지로 표시
+국세청 확인 결과(businessStatus, businessVerifiedAt)는 행을 펼친 상세에서 확인
 */-->
 <html lang="ko" xmlns:th="http://www.thymeleaf.org">
 <head th:replace="~{fragments/layout :: head('사장 신청 심사')}"></head>
@@ -25,7 +27,13 @@ API: GET  /api/admin/owner-applications?status=PENDING|APPROVED|REJECTED&page=0&
     </div>
     <div class="card shadow-sm"><div class="card-body">
         <div class="table-responsive">
-            <table class="table table-hover align-middle">
+            <!-- 열 너비 고정: table-layout:fixed + colgroup 비율 → 탭(심사 대기/승인/반려)을 바꿔도 열 너비가 같음
+                 min-width: 화면이 좁으면 열을 찌그러뜨리지 않고 table-responsive 가로 스크롤 -->
+            <table class="table table-hover align-middle" style="table-layout:fixed; min-width:1100px;">
+                <colgroup>
+                    <col style="width:6%"><col style="width:14%"><col style="width:21%"><col style="width:14%">
+                    <col style="width:13%"><col style="width:16%"><col style="width:16%">
+                </colgroup>
                 <thead class="table-light"><tr>
                     <th>ID</th><th>신청자</th><th>가게</th><th>연락처</th><th>사업자번호</th><th>신청일</th>
                     <th id="lastColHeader">관리</th>
@@ -92,28 +100,38 @@ API: GET  /api/admin/owner-applications?status=PENDING|APPROVED|REJECTED&page=0&
         let lastCol;
         if (a.status === 'PENDING') {
             // 버튼 클릭이 행 클릭(펼치기)으로 번지지 않도록 stopPropagation
-            lastCol = '<button class="btn btn-success btn-sm me-1" onclick="event.stopPropagation(); approve(' + id + ')"><i class="bi bi-check-lg"></i> 승인</button>' +
+            lastCol = '<button class="btn btn-success btn-sm me-1" onclick="event.stopPropagation(); approve(' + id + ', ' + (a.testApplication === true) + ')"><i class="bi bi-check-lg"></i> 승인</button>' +
                       '<button class="btn btn-outline-danger btn-sm" onclick="event.stopPropagation(); reject(' + id + ')"><i class="bi bi-x-lg"></i> 반려</button>';
         } else if (a.status === 'REJECTED') {
             lastCol = esc(formatDateTime(a.reviewedAt)) +
-                '<div class="small text-muted text-truncate" style="max-width:200px;">' + esc(a.rejectReason) + '</div>';
+                '<div class="small text-muted text-truncate">' + esc(a.rejectReason) + '</div>';
         } else {
             lastCol = esc(formatDateTime(a.reviewedAt));
         }
 
         const summaryRow = '<tr style="cursor:pointer;" onclick="toggleDetail(' + id + ')" title="클릭하면 상세 내용을 펼칩니다">' +
             '<td class="text-nowrap"><i class="bi bi-chevron-right text-muted" id="chevron-' + id + '"></i> ' + id + '</td>' +
-            '<td>' + esc(a.memberNickname) + '<div class="small text-muted">' + esc(a.memberEmail) + '</div></td>' +
-            '<td><b>' + esc(a.storeName) + '</b>' +
-                '<div class="small text-muted text-truncate" style="max-width:260px;">' + esc(a.address) + '</div>' +
-                (a.message ? '<div class="small mt-1 text-truncate" style="max-width:260px;"><i class="bi bi-chat-left-text"></i> ' + esc(a.message) + '</div>' : '') +
+            // 열 너비가 고정이므로 긴 값은 칸 안에서 말줄임(text-truncate). 전체 내용은 행을 펼친 상세에서 확인
+            '<td><div class="text-truncate">' + esc(a.memberNickname) + '</div><div class="small text-muted text-truncate">' + esc(a.memberEmail) + '</div></td>' +
+            '<td><div class="text-truncate"><b>' + esc(a.storeName) + '</b></div>' +
+                '<div class="small text-muted text-truncate">' + esc(a.address) + '</div>' +
+                (a.message ? '<div class="small mt-1 text-truncate"><i class="bi bi-chat-left-text"></i> ' + esc(a.message) + '</div>' : '') +
             '</td>' +
-            '<td class="text-nowrap">' + esc(a.phone) + '</td>' +
-            '<td class="text-nowrap">' + esc(a.businessNumber) + '</td>' +
+            // DB 에는 숫자만 저장 → 보여줄 때만 하이픈 (common.js formatPhone · formatBusinessNumber)
+            '<td class="text-nowrap">' + esc(formatPhone(a.phone)) + '</td>' +
+            '<td class="text-nowrap">' + esc(formatBusinessNumber(a.businessNumber)) + '<div>' + ntsBadge(a) + '</div></td>' +
             '<td class="text-nowrap">' + esc(formatDateTime(a.createdAt)) + '</td>' +
             '<td class="text-nowrap">' + lastCol + '</td></tr>';
 
         return summaryRow + detailRowHtml(a, id);
+    }
+
+    // 목록 배지: 테스트 신청만 표시 (실제 신청은 배지 없음, 국세청 확인 내용은 행을 펼친 상세에서 확인)
+    function ntsBadge(a) {
+        if (a.testApplication) {
+            return '<span class="badge bg-warning text-dark"><i class="bi bi-cone-striped"></i> 테스트 신청</span>';
+        }
+        return '';
     }
 
     function detailRowHtml(a, id) {
@@ -121,7 +139,17 @@ API: GET  /api/admin/owner-applications?status=PENDING|APPROVED|REJECTED&page=0&
         const textStyle = ' class="col-sm-10 text-break" style="white-space:pre-line;"';
         let html = '<dl class="row mb-0 small">' +
             '<dt class="col-sm-2 text-muted">가게 주소</dt><dd' + textStyle + '>' + esc(a.address) + '</dd>' +
-            '<dt class="col-sm-2 text-muted">남긴 말</dt><dd' + textStyle + '>' + (a.message ? esc(a.message) : '<span class="text-muted">없음</span>') + '</dd>';
+            '<dt class="col-sm-2 text-muted">남긴 말</dt><dd' + textStyle + '>' + (a.message ? esc(a.message) : '<span class="text-muted">없음</span>') + '</dd>' +
+            '<dt class="col-sm-2 text-muted">국세청 확인</dt><dd class="col-sm-10">' +
+                (a.testApplication
+                    ? '<span class="text-warning-emphasis fw-bold">시연용 테스트 신청</span> — 국세청 조회 없이 테스트 번호표로 통과했습니다. ' +
+                      '실제 사장 신청이 아니라면 승인 전에 확인해주세요.'
+                    : a.businessVerifiedAt
+                    ?'사업자번호 · 대표자 성명 · 개업일자 일치 / ' + esc(a.businessStatus) +
+                      (a.taxType ? ' / ' + esc(a.taxType) : '') + ' <span class="text-muted">(' + esc(formatDateTime(a.businessVerifiedAt)) + ' 확인)</span>' +
+                      '<div class="text-muted">실제 사장인지는 공공데이터 · 지도 등에 나온 가게 대표번호로 전화해 확인한 뒤 승인해주세요.</div>'
+                    : '<span class="text-muted">이 기능이 생기기 전에 들어온 신청이라 확인 기록이 없습니다.</span>') +
+            '</dd>';
         if (a.status === 'REJECTED') {
             html += '<dt class="col-sm-2 text-muted">반려 사유</dt><dd' + textStyle + '>' + esc(a.rejectReason) + '</dd>';
         }
@@ -146,24 +174,42 @@ API: GET  /api/admin/owner-applications?status=PENDING|APPROVED|REJECTED&page=0&
         badge.classList.toggle('d-none', !count);
     }
 
-    function approve(id) {
-        if (!confirm('이 신청을 승인하시겠습니까?\n신청자의 역할이 식당 사장(OWNER)으로 변경됩니다.')) return;
+    // test: 테스트 신청이면 true → 국세청 확인을 거치지 않았다는 경고를 따로 보여줌
+    //   (테스트 신청도 승인하면 실제 OWNER 권한이 생기므로, 배지를 못 보고 승인하는 실수 방지)
+    function approve(id, test) {
+        const message = test
+            ? '⚠ 테스트 신청입니다.\n국세청 사업자 확인을 거치지 않은 시연용 신청입니다.\n\n' +
+              '그래도 승인하면 신청자가 실제 식당 사장(OWNER) 권한을 받습니다. 승인하시겠습니까?'
+            : '이 신청을 승인하시겠습니까?\n신청자의 역할이 식당 사장(OWNER)으로 변경됩니다.';
+        if (!confirm(message)) return;
         fetchJson('/api/admin/owner-applications/' + id + '/approve', { method: 'POST' }).then(function (r) {
-            alert(r.body.message || r.body.error || '처리되었습니다.');
+            alert(resultMessage(r));
             loadApplications(); // 성공이든 409(이미 처리됨)든 최신 목록으로 다시 그림
-        });
+        }).catch(networkError);
     }
 
     function reject(id) {
         const reason = prompt('반려 사유를 입력해주세요. (신청자에게 표시됩니다, 500자 이내)');
         if (reason === null) return;        // 취소
         if (!reason.trim()) { alert('반려 사유를 입력해주세요.'); return; }
+        if (reason.trim().length > 500) { alert('반려 사유는 500자 이내로 입력해주세요. (지금 ' + reason.trim().length + '자)'); return; }
         fetchJson('/api/admin/owner-applications/' + id + '/reject', {
             method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reason: reason.trim() })
         }).then(function (r) {
-            alert(r.body.message || r.body.error || '처리되었습니다.');
+            alert(resultMessage(r));
             if (r.ok || r.status === 409) loadApplications();
-        });
+        }).catch(networkError);
+    }
+
+    // 서버 응답 → 안내 문구. 실패했는데 오류 문구가 없을 때(500 등) "처리되었습니다"로 잘못 보이지 않도록
+    function resultMessage(r) {
+        if (r.ok) return r.body.message || '처리되었습니다.';
+        return r.body.error || ('처리하지 못했습니다. (오류 ' + r.status + ')');
+    }
+
+    // 서버에 연결하지 못함 (서버 꺼짐 · 인터넷 끊김) → fetch 가 실패해서 then 대신 여기로 옴
+    function networkError() {
+        alert('서버에 연결할 수 없습니다. 잠시 후 다시 시도해주세요.');
     }
 </script>
 </body>

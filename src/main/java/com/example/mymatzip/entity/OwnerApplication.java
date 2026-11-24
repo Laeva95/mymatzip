@@ -24,6 +24,11 @@ import java.time.LocalDateTime;
 // DB 테이블 구조:
 //   | id | member_id | store_name | address | phone | business_number | message
 //   | status | reject_reason | created_at | reviewed_at |
+//   | business_status | tax_type | business_verified_at |   ← 국세청 확인 결과 (신청할 때 저장)
+//   | test_application |                                     ← 시연용 테스트 신청 여부
+//
+// 대표자 성명 · 개업일자는 국세청 확인에만 쓰고 저장하지 않습니다. (개인정보 최소 저장)
+// 이 기능 전에 들어온 신청은 business_verified_at 이 null (관리자 화면에 "확인 전 신청"으로 표시)
 @Entity
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -46,10 +51,10 @@ public class OwnerApplication {
     private String address;         // 가게 주소
 
     @Column(nullable = false, length = 20)
-    private String phone;           // 연락처
+    private String phone;           // 연락처 (숫자만, 예: 0511234567)
 
     @Column(nullable = false, length = 12)
-    private String businessNumber;  // 사업자등록번호 (예: 123-45-67890)
+    private String businessNumber;  // 사업자등록번호 (숫자만, 예: 1234567891)
 
     @Column(length = 1000)
     private String message;         // 관리자에게 남기는 말 (선택)
@@ -67,6 +72,20 @@ public class OwnerApplication {
 
     private LocalDateTime reviewedAt; // 승인/반려 처리 시각 (PENDING 이면 null)
 
+    @Column(length = 20)
+    private String businessStatus;    // 국세청 사업 상태 (예: 계속사업자)
+
+    @Column(length = 100)
+    private String taxType;           // 국세청 과세 유형 (예: 부가가치세 일반과세자)
+
+    private LocalDateTime businessVerifiedAt; // 국세청 진위확인 통과 시각 (테스트 신청이면 null)
+
+    // 시연 · 테스트용 신청 (국세청 확인 없이 테스트 번호표로 통과). 관리자 화면에 "테스트 신청"으로 표시
+    // default false: 이 컬럼이 생기기 전에 들어온 신청은 실제 신청으로 봄
+    // columnDefinition 에는 not null 을 쓰지 않음 (nullable = false 를 보고 Hibernate 가 뒤에 not null 을 붙임)
+    @Column(nullable = false, columnDefinition = "boolean default false")
+    private boolean testApplication;
+
     @Builder
     public OwnerApplication(Member member, String storeName, String address,
                             String phone, String businessNumber, String message) {
@@ -78,6 +97,21 @@ public class OwnerApplication {
         this.message = message;
         this.status = OwnerApplicationStatus.PENDING; // 신청 직후는 항상 심사 중
         this.createdAt = LocalDateTime.now();
+    }
+
+    // 국세청 진위확인 통과 결과 기록 (신청 저장 직전에 서비스에서 호출)
+    public void markBusinessVerified(String businessStatus, String taxType) {
+        this.businessStatus = businessStatus;
+        this.taxType = taxType;
+        this.businessVerifiedAt = LocalDateTime.now();
+    }
+
+    // 테스트 신청 기록: 국세청 확인을 하지 않았으므로 businessVerifiedAt 은 비워 둠
+    public void markTestApplication(String businessStatus) {
+        this.testApplication = true;
+        this.businessStatus = businessStatus;
+        this.taxType = null;
+        this.businessVerifiedAt = null;
     }
 
     // 관리자 승인. Role 변경(member.changeRole)은 같은 트랜잭션의 서비스에서 처리

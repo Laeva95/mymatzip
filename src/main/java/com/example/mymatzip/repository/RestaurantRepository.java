@@ -274,4 +274,54 @@ public interface RestaurantRepository extends JpaRepository<Restaurant, Long> {
     // [추가]2026.11.11권성애 (수정: 기본 count() → 삭제 안 된 맛집 수)
     long countByDeletedAtIsNull();
 
+
+    // ─────────────────────────────────────────────────────────────
+    // [추가]2026.11.23권성애 sort 추가 — 평점순 · 리뷰 많은순 · 찜 많은순
+    //   평점 · 리뷰 수 · 찜 수는 restaurant 칸이 아니라 계산값 → Sort 대신 @Query (ORDER BY 서브쿼리)
+    //   category 가 null 이면 전체, 값이 있으면 그 카테고리만
+    //   같은 값이면 최신순(createdAt DESC, id DESC) → 페이지를 넘겨도 순서 고정
+    //   @EntityGraph(member): 카드의 "by 작성자" 때문에 생기는 N+1 방지 (기존 목록 메서드와 같게)
+    //   countQuery: 페이지 번호용 전체 개수 (ORDER BY 서브쿼리 없이 가볍게)
+    // ─────────────────────────────────────────────────────────────
+    @EntityGraph(attributePaths = {"member"})
+    @Query(value = "SELECT r FROM Restaurant r " +
+            "WHERE r.deletedAt IS NULL AND (:category IS NULL OR r.category = :category) " +
+            "ORDER BY (SELECT AVG(v.rating) FROM Review v WHERE v.restaurant = r) DESC, " +   // 평점 (리뷰 없음 = NULL → MySQL DESC 에서 맨 뒤)
+            "(SELECT COUNT(v2) FROM Review v2 WHERE v2.restaurant = r) DESC, " +             // 같은 평점이면 리뷰 많은 순
+            "r.createdAt DESC, r.id DESC",
+            countQuery = "SELECT COUNT(r) FROM Restaurant r " +
+                    "WHERE r.deletedAt IS NULL AND (:category IS NULL OR r.category = :category)")
+    Page<Restaurant> findOrderByRating(@Param("category") Category category, Pageable pageable);
+
+    // [추가]2026.11.23권성애 sort 추가 — 리뷰 많은순
+    @EntityGraph(attributePaths = {"member"})
+    @Query(value = "SELECT r FROM Restaurant r " +
+            "WHERE r.deletedAt IS NULL AND (:category IS NULL OR r.category = :category) " +
+            "ORDER BY (SELECT COUNT(v) FROM Review v WHERE v.restaurant = r) DESC, " +
+            "r.createdAt DESC, r.id DESC",
+            countQuery = "SELECT COUNT(r) FROM Restaurant r " +
+                    "WHERE r.deletedAt IS NULL AND (:category IS NULL OR r.category = :category)")
+    Page<Restaurant> findOrderByReview(@Param("category") Category category, Pageable pageable);
+
+    // [추가]2026.11.23권성애 sort 추가 — 찜 많은순 (Wishlist 엔티티는 읽기만, 찜 담당 코드 수정 없음)
+    @EntityGraph(attributePaths = {"member"})
+    @Query(value = "SELECT r FROM Restaurant r " +
+            "WHERE r.deletedAt IS NULL AND (:category IS NULL OR r.category = :category) " +
+            "ORDER BY (SELECT COUNT(w) FROM Wishlist w WHERE w.restaurant = r) DESC, " +
+            "r.createdAt DESC, r.id DESC",
+            countQuery = "SELECT COUNT(r) FROM Restaurant r " +
+                    "WHERE r.deletedAt IS NULL AND (:category IS NULL OR r.category = :category)")
+    Page<Restaurant> findOrderByWishlist(@Param("category") Category category, Pageable pageable);
+
+    // [추가]2026.11.23권성애 sort 추가 — 여러 맛집의 찜 수를 쿼리 1번으로 (카드 표시 · N+1 방지)
+    //   찜이 없는 맛집은 결과에 없음 → 서비스에서 0
+    @Query("SELECT w.restaurant.id AS restaurantId, COUNT(w) AS wishlistCount " +
+            "FROM Wishlist w WHERE w.restaurant.id IN :ids GROUP BY w.restaurant.id")
+    List<RestaurantWishlistCount> wishlistCountsByRestaurantIdsAvoidNPlusOne(@Param("ids") List<Long> ids);
+
+    // [추가]2026.11.23권성애 sort 추가 — 위 쿼리 결과 한 줄
+    interface RestaurantWishlistCount {
+        Long getRestaurantId();
+        Long getWishlistCount();
+    }
 }
