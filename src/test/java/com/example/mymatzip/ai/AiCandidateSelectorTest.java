@@ -55,6 +55,27 @@ class AiCandidateSelectorTest {
     }
 
     @Test
+    void 부산진역은_동구_별칭이라_부산진구_맛집을_고르지_않는다() {
+        // 부산진역은 동구다. 부산진구 국밥(5번 곰탕)이 잡히면 안 되고, 동구 맛집이 없으니 빈 목록이어야 한다.
+        assertThat(AiCandidateSelector.select("부산진역 근처 국밥", all, 50)).isEmpty();
+    }
+
+    @Test
+    void 수영장처럼_지역명이_다른_단어의_일부면_지역으로_보지_않는다() {
+        // "수영장" 안의 "수영"을 수영구로 잡으면 카페(4번)가 수영구 조건에 걸려 빠진다. 카페 4번만 나와야 한다.
+        assertThat(AiCandidateSelector.select("수영장 근처 카페", all, 50))
+                .extracting(RestaurantResponse::getId).containsExactly(4L);
+    }
+
+    @Test
+    void 조사가_붙은_지역명과_근처_표현은_지역으로_인식한다() {
+        assertThat(AiCandidateSelector.select("해운대에서 국밥", all, 50))
+                .extracting(RestaurantResponse::getId).containsExactly(1L);
+        assertThat(AiCandidateSelector.select("서면근처 국물 요리", all, 50))
+                .extracting(RestaurantResponse::getId).containsExactly(5L);
+    }
+
+    @Test
     void 두_글자_구_이름은_다른_구_이름의_일부와_섞이지_않는다() {
         assertThat(AiCandidateSelector.select("서구 맛집", all, 50))
                 .extracting(RestaurantResponse::getId).containsExactly(7L);
