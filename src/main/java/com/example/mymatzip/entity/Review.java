@@ -1,3 +1,4 @@
+// [C수정] 리뷰 컬렉션 배치 로딩 및 기존 DB 매핑 복원
 package com.example.mymatzip.entity; // 이 파일이 속한 패키지(폴더) 선언
 // com.example.mymatzip.entity = entity 패키지 안에 있다는 뜻
 // 같은 패키지 안의 Member.java, Restaurant.java를 import 없이 바로 사용 가능
@@ -12,6 +13,7 @@ import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.Set;
 import jakarta.persistence.*;
+import org.hibernate.annotations.BatchSize;
 import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
 // JPA(Java Persistence API) 관련 어노테이션을 모두 가져옵니다.
@@ -314,32 +316,43 @@ public class Review {
         this.aiSpamReason = null;
     }
     // [추가] 도움돼요를 누른 회원 ID 목록 (중복 방지용 Set)
-    @ElementCollection
+    @ElementCollection(fetch = FetchType.LAZY)
+    @BatchSize(size = 50)
     @CollectionTable(
-            name = "review_helpful_members",
-            joinColumns = @JoinColumn(name = "review_id")
+            name = "review_helpful",
+            joinColumns = @JoinColumn(name = "review_id"),
+            uniqueConstraints = @UniqueConstraint(
+                    columnNames = {"review_id", "member_id"}
+            )
     )
-    @Column(name = "member_id")
+    @Column(name = "member_id", nullable = false)
     private Set<Long> helpfulMemberIds = new HashSet<>();
 
     // [추가] 리뷰 키워드 태그 목록 (순서 유지를 위해 LinkedHashSet 사용)
-    @ElementCollection
+    @ElementCollection(fetch = FetchType.LAZY)
+    @BatchSize(size = 50)
     @CollectionTable(
-            name = "review_keyword_tags",
-            joinColumns = @JoinColumn(name = "review_id")
+            name = "review_keyword_tag",
+            joinColumns = @JoinColumn(name = "review_id"),
+            uniqueConstraints = @UniqueConstraint(
+                    columnNames = {"review_id", "keyword"}
+            )
     )
-    @Column(name = "tag")
+    @Column(name = "keyword", nullable = false, length = 50)
     private Set<String> keywordTags = new LinkedHashSet<>();
 
-    public void changeKeywordTags(LinkedHashSet<String> strings) {
-        this.keywordTags = strings == null ? new LinkedHashSet<>() : new LinkedHashSet<>(strings);
+    public void changeKeywordTags(java.util.Collection<String> keywords) {
+        this.keywordTags.clear();
+        if (keywords != null) {
+            this.keywordTags.addAll(keywords);
+        }
     }
 
     public boolean addHelpful(Long id) {
         return helpfulMemberIds.add(id);
     }
 
-    public boolean removeHelpful(Long id) {
-        return helpfulMemberIds.remove(id);
+    public void removeHelpful(Long id) {
+        helpfulMemberIds.remove(id);
     }
 }

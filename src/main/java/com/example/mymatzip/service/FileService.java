@@ -1,3 +1,4 @@
+// [C수정] 미사용 리뷰 사진의 저장소·DB 정리 기능 추가
 package com.example.mymatzip.service;
 
 import com.example.mymatzip.entity.Image;
@@ -5,6 +6,7 @@ import com.example.mymatzip.repository.ImageRepository;
 import lombok.extern.slf4j.Slf4j;                                    // [추가]2026.11.11권성애 로그 (log.info / log.warn)
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 import software.amazon.awssdk.core.ResponseBytes;
 import software.amazon.awssdk.core.sync.RequestBody;
@@ -14,6 +16,7 @@ import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectResponse;
 import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
+import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -261,6 +264,33 @@ public class FileService {
                 .contentType(contentType)
                 .build());
         return "/api/files/" + folder + "/" + savedFilename;
+    }
+
+    /** 리뷰 등록 실패로 사용되지 않게 된 업로드 파일을 즉시 정리한다. */
+    @Transactional
+    public void deleteUploadedFile(String imageUrl) {
+        if (imageUrl == null || !imageUrl.startsWith("/api/files/review/")) {
+            return;
+        }
+        String relativePath = storedNameOf(imageUrl);
+        if (relativePath == null || !relativePath.startsWith("review/")) {
+            return;
+        }
+
+        String filename = relativePath.substring("review/".length());
+        if (isS3()) {
+            s3Client.deleteObject(DeleteObjectRequest.builder()
+                    .bucket(bucket)
+                    .key(S3_PREFIX + relativePath)
+                    .build());
+        } else {
+            try {
+                Files.deleteIfExists(Paths.get(UPLOAD_DIR).resolve(filename));
+            } catch (IOException e) {
+                log.warn("사용하지 않는 리뷰 사진 파일 삭제 실패: {}", imageUrl, e);
+            }
+        }
+        imageRepository.findByStoredFileName(filename).ifPresent(Image::softDelete);
     }
 
     /**

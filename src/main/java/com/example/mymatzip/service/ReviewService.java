@@ -1,3 +1,4 @@
+// [C수정] AI 판정 트랜잭션 경계 및 리뷰 저장 흐름 수정
 package com.example.mymatzip.service;
 
 import com.example.mymatzip.dto.PageResponse;
@@ -15,7 +16,10 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
@@ -38,6 +42,18 @@ public class ReviewService {
     private final FileService fileService;
     // AI 리뷰 스팸 판별 서비스
     private final AiReviewSpamDetectionService aiReviewSpamDetectionService;
+
+    // AI 호출이 끝난 뒤 저장 구간에서만 트랜잭션을 연다.
+    private TransactionTemplate transactionTemplate;
+    private TransactionTemplate aiOutsideTransactionTemplate;
+
+    @Autowired
+    void configureTransactionTemplate(PlatformTransactionManager transactionManager) {
+        this.transactionTemplate = new TransactionTemplate(transactionManager);
+        this.aiOutsideTransactionTemplate = new TransactionTemplate(transactionManager);
+        this.aiOutsideTransactionTemplate.setPropagationBehavior(
+                org.springframework.transaction.TransactionDefinition.PROPAGATION_NOT_SUPPORTED);
+    }
 
     public List<ReviewResponse> findByRestaurantId(Long restaurantId) {
         return findByRestaurantId(restaurantId, (Member) null);
@@ -92,34 +108,55 @@ public class ReviewService {
             }
         }
 
-        Review review = Review.builder()
-                .content(form.getContent())
-                .rating(form.getRating())
-                .imageUrl(form.getImageUrl())
-                .restaurant(restaurant)
-                .member(loginMember)
-                .build();
-
-        // [추가] 리뷰 키워드 저장
-        review.changeKeywordTags(new LinkedHashSet<>(selectedKeywords));
-
         // 명확한 스팸(BLOCK)은 DB에 저장하지 않는다.
         // 애매한 스팸(SPAM)만 저장 후 관리자 의심 목록에 남긴다.
         AiReviewSpamDetectionService.Result spamResult =
-                aiReviewSpamDetectionService.detect(review.getContent());
+                detectOutsideTransaction(form.getContent());
         if (spamResult.blocked()) {
             throw new IllegalArgumentException("스팸으로 확정된 리뷰는 등록할 수 없습니다. "
                     + spamResult.reason());
         }
 
-        restaurant.clearAiSummary();
-        Review savedReview = reviewRepository.save(review);
+        return persistReview(form, selectedKeywords, loginMember, restaurant, spamResult);
+    }
 
-        if (spamResult.spam()) {
-            savedReview.reportAsSpam(spamResult.reason());
+    private AiReviewSpamDetectionService.Result detectOutsideTransaction(String content) {
+        if (aiOutsideTransactionTemplate == null) {
+            return aiReviewSpamDetectionService.detect(content);
         }
+        return aiOutsideTransactionTemplate.execute(status -> aiReviewSpamDetectionService.detect(content));
+    }
 
-        return ReviewResponse.from(savedReview, loginMember.getId());
+    private ReviewResponse persistReview(ReviewForm form, List<String> selectedKeywords,
+                                         Member loginMember,
+                                         Restaurant restaurant,
+                                         AiReviewSpamDetectionService.Result spamResult) {
+        java.util.function.Supplier<ReviewResponse> operation = () -> {
+            Restaurant managedRestaurant = restaurant;
+            if (transactionTemplate != null) {
+                managedRestaurant = restaurantRepository.findByIdAndDeletedAtIsNull(form.getRestaurantId())
+                        .orElse(restaurant);
+            }
+            managedRestaurant.clearAiSummary();
+
+            Review review = Review.builder()
+                    .content(form.getContent())
+                    .rating(form.getRating())
+                    .imageUrl(form.getImageUrl())
+                    .restaurant(managedRestaurant)
+                    .member(loginMember)
+                    .build();
+            review.changeKeywordTags(new LinkedHashSet<>(selectedKeywords));
+
+            Review savedReview = reviewRepository.save(review);
+            if (spamResult.spam()) {
+                savedReview.reportAsSpam(spamResult.reason());
+            }
+            return ReviewResponse.from(savedReview, loginMember.getId());
+        };
+
+        // 단위 테스트처럼 스프링 컨테이너 밖에서 호출되는 경우에도 동작하도록 직접 실행한다.
+        return transactionTemplate == null ? operation.get() : transactionTemplate.execute(status -> operation.get());
     }
 
     @Transactional
