@@ -1,3 +1,4 @@
+<!-- [C수정] 리뷰 API fallback 및 업로드 실패 파일 정리 수정 -->
 <!DOCTYPE html>
 <!--/*
 ============================================================
@@ -492,11 +493,8 @@
 			    reviewMoreLoading = true;
 			    reviewMoreBtn.disabled = true;
 			    reviewMoreMessage.textContent = '리뷰를 불러오는 중입니다...';
-			    const query = '?page=' + reviewPage + '&size=' + reviewPageSize + '&sort=' + (reviewSortSelect ? reviewSortSelect.value : 'latest');
-			    fetchJson('/api/reviews/restaurant/' + restaurantId + query, { method: 'GET' }).then(function (r) {
-			        if (!r.ok) return fetchJson('/api/reviews?restaurantId=' + restaurantId + '&page=' + reviewPage + '&size=' + reviewPageSize, { method: 'GET' });
-			        return r;
-			    }).then(function (r) {
+    const query = '?page=' + reviewPage + '&size=' + reviewPageSize;
+    fetchJson('/api/reviews/restaurant/' + restaurantId + query, { method: 'GET' }).then(function (r) {
 			        if (!r.ok) throw new Error(r.body && r.body.error || '리뷰를 불러오지 못했습니다.');
 			        const page = reviewPageItems(r.body);
 			        page.items.forEach(appendReviewPageItem);
@@ -590,6 +588,14 @@ function uploadReviewImage() {
     });
 }
 
+function cleanupUploadedReviewImage() {
+    if (!reviewImageUrl) return Promise.resolve();
+    const url = reviewImageUrl;
+    reviewImageUrl = null;
+    return fetchJson('/api/files/uploaded?url=' + encodeURIComponent(url), { method: 'DELETE' })
+        .catch(function () { /* 등록 실패 알림이 우선이며 정리 실패는 서버 로그로 확인 */ });
+}
+
 
 /* ── C 리뷰: 작성 (사진 업로드 → POST /api/reviews) ── */
 function submitReview() {
@@ -623,11 +629,15 @@ function submitReview() {
             })        });
     }).then(function (r) {
         if (r.ok) { window.location.reload(); return; }
-        alert(r.body.error || '리뷰 등록에 실패했습니다.');
-        btn.disabled = false;
+        return cleanupUploadedReviewImage().then(function () {
+            alert(r.body.error || '리뷰 등록에 실패했습니다.');
+            btn.disabled = false;
+        });
     }).catch(function (e) {
-        alert(e.message || '서버 오류가 발생했습니다.');
-        btn.disabled = false;
+        cleanupUploadedReviewImage().finally(function () {
+            alert(e.message || '서버 오류가 발생했습니다.');
+            btn.disabled = false;
+        });
     });
 
 
