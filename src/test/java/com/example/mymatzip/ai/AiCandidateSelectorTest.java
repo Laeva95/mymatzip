@@ -48,6 +48,13 @@ class AiCandidateSelectorTest {
     }
 
     @Test
+    void 맛집이_없는_지역을_물으면_다른_지역_맛집을_고르지_않는다() {
+        // 기장군 맛집은 테스트 데이터에 없다. 지역을 인식하지 못해 전체 맛집이 후보가 되면 안 된다.
+        assertThat(AiCandidateSelector.select("기장 맛집 추천", all, 50)).isEmpty();
+        assertThat(AiCandidateSelector.select("기장군 국밥", all, 50)).isEmpty();
+    }
+
+    @Test
     void 두_글자_구_이름은_다른_구_이름의_일부와_섞이지_않는다() {
         assertThat(AiCandidateSelector.select("서구 맛집", all, 50))
                 .extracting(RestaurantResponse::getId).containsExactly(7L);

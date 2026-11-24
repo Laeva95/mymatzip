@@ -93,8 +93,25 @@ function formatPhone(value) {
      true  : 사진이 없거나 깨지면 카테고리 기본 이미지(r.defaultImageUrl) — home.html 처음 화면 카드와 같게
      false : 예전 그대로 (사진이 없으면 사진 칸을 만들지 않음)
    ※ list.html 은 restaurantCardHtmlAddBasicImage() 로 기본 이미지를 직접 끼워 넣으므로 false 로 부른다.
-     (true 로 부르면 기본 이미지가 두 번 들어감. 그 함수를 없앨 때 true 로 바꾸면 됨) */
-function restaurantCardHtml(r, extraHtml, withDefaultImage) {
+     (true 로 부르면 기본 이미지가 두 번 들어감. 그 함수를 없앨 때 true 로 바꾸면 됨)
+   [추가]2026.11.24 세 번째 값에 객체도 받음: { defaultImage: true, counts: true }
+     counts: true : 별점 옆에 리뷰 수 · 찜 수 (r.reviewCount · r.wishlistCount, 없으면 0) — home.html AI 추천
+     ※ list.html 검색 결과는 restaurantCardHtmlAddBasicImage() 가 개수를 직접 끼워 넣으므로 켜지 않는다 (두 번 들어감)
+     wishHeart: true : 썸네일 오른쪽 위 하트(찜) 버튼 — wishlist-heart.js 의 wishHeartButtonHtml() (D 찜 담당)
+       그 스크립트를 불러온 화면에서만 들어감. 버튼을 그린 뒤 WishHeart.refresh() 로 찜 상태를 칠해야 함
+       ※ list.html 검색 결과는 하트를 직접 끼워 넣으므로 켜지 않는다 (두 번 들어감)
+     true / false 만 넘기는 예전 방식도 그대로 동작 (= { defaultImage: true / false }) */
+function restaurantCardHtml(r, extraHtml, options) {
+    const opts = (options && typeof options === 'object') ? options : { defaultImage: !!options };
+    const withDefaultImage = !!opts.defaultImage;
+    // 리뷰 수 · 찜 수 (home.html 최근 맛집 카드, list.html 카드와 같은 모양 · 같은 class)
+    const countsHtml = opts.counts
+        ? ' <span class="card-counts"><i class="bi bi-chat"></i> ' + (Number(r.reviewCount) || 0) +
+          ' · <i class="bi bi-heart"></i> ' + (Number(r.wishlistCount) || 0) + '</span>'
+        : '';
+    const heartHtml = (opts.wishHeart && typeof wishHeartButtonHtml === 'function')
+        ? wishHeartButtonHtml(r.id)
+        : '';
     let imgHtml = '';
     if (withDefaultImage && (r.imageUrl || r.defaultImageUrl)) {
         const fallback = r.defaultImageUrl
@@ -108,6 +125,7 @@ function restaurantCardHtml(r, extraHtml, withDefaultImage) {
     return '<div class="col-md-6 col-lg-4">' +
         '<div class="card h-100">' +
         imgHtml +
+        heartHtml +
         '<div class="card-body">' +
         '<div class="d-flex justify-content-between align-items-start mb-2">' +
         '<h5 class="card-title mb-0"><a href="/restaurants/' + Number(r.id) + '" class="text-decoration-none text-dark">' + esc(r.name) + '</a></h5>' +
@@ -116,7 +134,7 @@ function restaurantCardHtml(r, extraHtml, withDefaultImage) {
         '<p class="card-text text-muted small mb-2"><i class="bi bi-geo-alt"></i> ' + esc(r.address) + '</p>' +
         (r.description ? '<p class="card-text small">' + esc(r.description) + '</p>' : '') +
         '<div class="d-flex justify-content-between align-items-center">' +
-        '<div class="rating-stars">' + renderStars(r.averageRating, true) + '</div>' +
+        '<div class="rating-stars">' + renderStars(r.averageRating, true) + countsHtml + '</div>' +
         '<small class="text-muted">by ' + esc(r.memberNickname) + '</small>' +
         '</div>' +
         (extraHtml || '') +
