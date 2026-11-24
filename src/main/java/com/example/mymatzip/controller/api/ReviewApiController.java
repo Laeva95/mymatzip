@@ -33,6 +33,7 @@ import com.example.mymatzip.service.ReviewService;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
@@ -53,16 +54,23 @@ public class ReviewApiController {
 
     // ── 1. GET /api/reviews/restaurant/{restaurantId} ───────
     // 특정 맛집의 리뷰 목록 조회 API
+    // 수정 후: sort=latest 등을 실제 엔티티 필드명(예: createdAt 또는 id)으로 변환
     @GetMapping("/restaurant/{restaurantId}")
-    public ResponseEntity<PageResponse<ReviewResponse>> listByRestaurant(
+    public ResponseEntity<?> listByRestaurant(
             @PathVariable Long restaurantId,
-            @LoginMember Member loginMember,
-            @PageableDefault(size = 10, sort = "createdAt",
-                    direction = Sort.Direction.DESC) Pageable pageable) {
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "latest") String sort) {
 
-        return ResponseEntity.ok(
-                reviewService.findByRestaurantId(restaurantId, pageable, loginMember)
-        );
+        // 프론트에서 넘어온 sort 값에 따라 실제 Review 엔티티의 필드명으로 매핑
+        Sort sortObj = switch (sort) {
+            case "rating" -> Sort.by(Sort.Direction.DESC, "rating"); // 평점순 예시
+            case "latest" -> Sort.by(Sort.Direction.DESC, "id");     // 최신순 (createdAt이 있다면 "createdAt"으로 변경)
+            default -> Sort.by(Sort.Direction.DESC, "id");
+        };
+
+        Pageable pageable = PageRequest.of(page, size, sortObj);
+        return ResponseEntity.ok(reviewService.findByRestaurantId(restaurantId, pageable));
     }
 
     // ── 2. POST /api/reviews ────────────────────────────────

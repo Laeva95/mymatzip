@@ -9,6 +9,7 @@ import com.example.mymatzip.entity.Review;
 import com.example.mymatzip.entity.Role;
 import com.example.mymatzip.repository.RestaurantRepository;
 import com.example.mymatzip.repository.ReviewRepository;
+import com.example.mymatzip.service.ai.AiReviewSpamDetectionService;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -35,6 +36,8 @@ public class ReviewService {
     private final ReviewRepository reviewRepository;
     private final RestaurantRepository restaurantRepository;
     private final FileService fileService;
+    // AI 리뷰 스팸 판별 서비스
+    private final AiReviewSpamDetectionService aiReviewSpamDetectionService;
 
     public List<ReviewResponse> findByRestaurantId(Long restaurantId) {
         return findByRestaurantId(restaurantId, (Member) null);
@@ -100,9 +103,22 @@ public class ReviewService {
         // [추가] 리뷰 키워드 저장
         review.changeKeywordTags(new LinkedHashSet<>(selectedKeywords));
 
-        restaurant.clearAiSummary();
+        // 명확한 스팸(BLOCK)은 DB에 저장하지 않는다.
+        // 애매한 스팸(SPAM)만 저장 후 관리자 의심 목록에 남긴다.
+        AiReviewSpamDetectionService.Result spamResult =
+                aiReviewSpamDetectionService.detect(review.getContent());
+        if (spamResult.blocked()) {
+            throw new IllegalArgumentException("스팸으로 확정된 리뷰는 등록할 수 없습니다. "
+                    + spamResult.reason());
+        }
 
+        restaurant.clearAiSummary();
         Review savedReview = reviewRepository.save(review);
+
+        if (spamResult.spam()) {
+            savedReview.reportAsSpam(spamResult.reason());
+        }
+
         return ReviewResponse.from(savedReview, loginMember.getId());
     }
 
