@@ -2,6 +2,7 @@
 package com.example.mymatzip.ai;
 
 import com.example.mymatzip.dto.RestaurantResponse;
+import com.example.mymatzip.service.HomeService;
 import com.example.mymatzip.service.RestaurantService;
 import com.example.mymatzip.service.ai.AiRecommendService;
 import com.example.mymatzip.service.ai.AiUsageLimiter;
@@ -50,7 +51,8 @@ class AiRecommendServiceTest {
                 AiRecommendService service = new AiRecommendService(
                         builder,
                         restaurantService,
-                        limiter
+                        limiter,
+                        mock(HomeService.class)
                 );
 
         // 5. 추천 실행

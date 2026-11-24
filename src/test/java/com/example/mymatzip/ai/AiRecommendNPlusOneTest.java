@@ -10,6 +10,7 @@ import com.example.mymatzip.entity.Source;
 import com.example.mymatzip.repository.MemberRepository;
 import com.example.mymatzip.repository.RestaurantRepository;
 import com.example.mymatzip.repository.ReviewRepository;
+import com.example.mymatzip.service.HomeService;
 import com.example.mymatzip.service.RestaurantService;
 import com.example.mymatzip.service.ai.AiRecommendService;
 import com.example.mymatzip.service.ai.AiUsageLimiter;
@@ -188,7 +189,7 @@ class AiRecommendNPlusOneTest {
         when(builder.build()).thenReturn(chatClient);
 
         // 사용 횟수 제한에 걸리지 않도록 넉넉하게 (빈 응답이면 어차피 환불됨)
-        return new AiRecommendService(builder, fake, new AiUsageLimiter(1_000_000));
+        return new AiRecommendService(builder, fake, new AiUsageLimiter(1_000_000), mock(HomeService.class));
     }
 
     private Result measure(AiRecommendService service) {
