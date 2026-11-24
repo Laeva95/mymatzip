@@ -60,7 +60,7 @@ public final class AiCandidateSelector {
             Map.entry("센텀", "해운대구"), Map.entry("송정", "해운대구"), Map.entry("청사포", "해운대구"),
             Map.entry("달맞이", "해운대구"), Map.entry("마린시티", "해운대구"),
             Map.entry("부산대", "금정구"), Map.entry("장전", "금정구"),
-            Map.entry("부산역", "동구"), Map.entry("초량", "동구"),
+            Map.entry("부산역", "동구"), Map.entry("부산진역", "동구"), Map.entry("초량", "동구"),
             Map.entry("경성대", "남구"), Map.entry("대연", "남구"),
             Map.entry("온천장", "동래구"), Map.entry("연산", "연제구"),
             Map.entry("하단", "사하구"), Map.entry("다대포", "사하구"),
@@ -146,19 +146,41 @@ public final class AiCandidateSelector {
             "중구", "서구", "동구", "영도구", "부산진구", "동래구", "남구", "북구",
             "해운대구", "사하구", "금정구", "강서구", "연제구", "수영구", "사상구", "기장군");
 
+    // 지역 이름 뒤에 붙일 수 있는 말 ("해운대근처", "광안리쪽")
+    private static final List<String> PLACE_SUFFIXES = List.of("", "근처", "쪽", "일대", "주변", "동네");
+
     private static Set<String> detectDistricts(String q) {
-        Set<String> known = new HashSet<>(BUSAN_DISTRICTS);
+        List<String> tokens = placeTokens(q);
         Set<String> found = new HashSet<>();
-        for (String d : known) {
-            // "중구"·"서구" 처럼 두 글자는 그대로 (앞 글자가 한글이면 "강서구" 의 일부이므로 제외)
+        for (String d : BUSAN_DISTRICTS) {
+            // "중구"·"서구" 처럼 구 전체 이름. 앞 글자가 한글이면 "강서구"의 일부이므로 제외
             if (Pattern.compile("(?<![가-힣])" + Pattern.quote(d)).matcher(q).find()) found.add(d);
-            // "해운대구" → "해운대" 처럼 구·군을 뗀 이름도 인정 (세 글자 이상만)
-            if (d.length() >= 3 && q.contains(d.substring(0, d.length() - 1))) found.add(d);
+            // "해운대구" → "해운대" 처럼 구·군을 뗀 이름 (세 글자 이상, 단어 단위로 같을 때만)
+            if (d.length() >= 3 && isPlace(tokens, d.substring(0, d.length() - 1))) found.add(d);
         }
         AREA_ALIASES.forEach((alias, district) -> {
-            if (q.contains(alias)) found.add(district);
+            if (isPlace(tokens, alias)) found.add(district);
         });
         return found;
+    }
+
+    // 질문을 단어로 나누고 조사를 뗀다. 예) "해운대에서 국밥" → [해운대, 국밥]
+    private static List<String> placeTokens(String q) {
+        List<String> out = new ArrayList<>();
+        for (String token : NON_WORD.split(q)) {
+            if (!token.isEmpty()) out.add(PARTICLE.matcher(token).replaceAll(""));
+        }
+        return out;
+    }
+
+    // 단어 단위로 같은지 본다. 부분 문자열로 찾으면 "수영장"이 "수영"(수영구)으로, "부산진역"이 "부산진"(부산진구)으로 잘못 잡힌다.
+    private static boolean isPlace(List<String> tokens, String name) {
+        for (String t : tokens) {
+            for (String suffix : PLACE_SUFFIXES) {
+                if (t.equals(name + suffix)) return true;
+            }
+        }
+        return false;
     }
 
     private static List<String> questionWords(String q) {

@@ -185,10 +185,13 @@ public class AiRecommendService {
     }
 
     // 리뷰가 없는 맛집은 평균이 0.0 으로 들어온다. 그대로 보내면 AI 가 "최하점"으로 읽으므로 "별점 없음"으로 보낸다.
+    // 별점은 1~5 이므로 평균이 0.0(또는 null)이면 리뷰가 없는 것이다.
+    // 후보 목록은 reviewCount 를 채우지 않을 수 있으므로(null) 평균 별점만으로 판단한다.
     public static String ratingText(RestaurantResponse r) {
-        long reviews = r.getReviewCount() == null ? 0L : r.getReviewCount();
-        if (reviews == 0) return "별점 없음(리뷰 0)";
-        return r.getAverageRating() + "(리뷰 " + reviews + ")";
+        Double avg = r.getAverageRating();
+        if (avg == null || avg <= 0.0) return "별점 없음";
+        Long reviews = r.getReviewCount();
+        return reviews == null ? String.valueOf(avg) : avg + "(리뷰 " + reviews + ")";
     }
 
     // 후보 칸 값: 줄바꿈·구분자(|)를 바꿔 한 줄 형식이 깨지지 않게 하고 길이를 자른다
