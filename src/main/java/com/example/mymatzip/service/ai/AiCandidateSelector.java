@@ -89,7 +89,7 @@ public final class AiCandidateSelector {
                 .filter(rule -> rule.triggers().stream().anyMatch(q::contains)
                         || rule.categories().stream().anyMatch(singleWordCategories::contains))
                 .toList();
-        Set<String> districts = detectDistricts(q, all);
+        Set<String> districts = detectDistricts(q);
         List<String> words = questionWords(q);
 
         // 음식 종류 조건이 있으면 카테고리가 맞는 맛집을 먼저 (설명에만 단어가 있는 맛집은 뒤로.
@@ -140,12 +140,14 @@ public final class AiCandidateSelector {
         return rule.keywords().stream().anyMatch(text::contains);
     }
 
-    private static Set<String> detectDistricts(String q, List<RestaurantResponse> all) {
-        Set<String> known = new HashSet<>();
-        for (RestaurantResponse r : all) {
-            String d = districtOf(r.getAddress());
-            if (!d.isEmpty()) known.add(d);
-        }
+    // 부산 16개 구·군 전체에서 찾는다. (DB 에 맛집이 있는 구·군만 보면, 맛집이 없는 지역을 물을 때
+    // 지역 조건이 빠져 다른 지역 맛집이 후보로 들어간다.) 맛집이 없는 지역이면 후보가 0개가 되어 AI 를 부르지 않는다.
+    static final List<String> BUSAN_DISTRICTS = List.of(
+            "중구", "서구", "동구", "영도구", "부산진구", "동래구", "남구", "북구",
+            "해운대구", "사하구", "금정구", "강서구", "연제구", "수영구", "사상구", "기장군");
+
+    private static Set<String> detectDistricts(String q) {
+        Set<String> known = new HashSet<>(BUSAN_DISTRICTS);
         Set<String> found = new HashSet<>();
         for (String d : known) {
             // "중구"·"서구" 처럼 두 글자는 그대로 (앞 글자가 한글이면 "강서구" 의 일부이므로 제외)
@@ -154,7 +156,7 @@ public final class AiCandidateSelector {
             if (d.length() >= 3 && q.contains(d.substring(0, d.length() - 1))) found.add(d);
         }
         AREA_ALIASES.forEach((alias, district) -> {
-            if (q.contains(alias) && known.contains(district)) found.add(district);
+            if (q.contains(alias)) found.add(district);
         });
         return found;
     }
