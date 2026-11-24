@@ -6,7 +6,7 @@
 
 - **프로젝트 유형:** K-Digital Training 팀 프로젝트 (6인)
 - **GitHub:** https://github.com/Laeva95/mymatzip
-- **서비스 주소:** https://mymatzip.p-e.kr *(운영 상태는 별도 확인 필요)*
+- **서비스 주소:** https://mymatzip.p-e.kr
 
 ## 1. 주요 기능
 
@@ -60,7 +60,7 @@ Gradle 기반 Spring Boot 프로젝트의 빌드·배포 흐름을 관리하고,
 | 구분 | 기술 |
 |---|---|
 | Language | Java 21, HTML, CSS, JavaScript |
-| Backend | Spring Boot **4.1.2** (`../../../Downloads/build.gradle` 기준), Spring MVC, Spring Data JPA, Spring Security |
+| Backend | Spring Boot **4.1.2**, Spring MVC, Spring Data JPA, Spring Security |
 | Frontend | Thymeleaf |
 | Database | MySQL, H2(테스트용) |
 | Authentication | Spring Security, Google OAuth2, JWT |
@@ -136,9 +136,9 @@ build.gradle                 # Gradle 빌드 설정
    ```bash
    java -jar build/libs/mymatzip.jar
    ```
-   *JAR 이름은 `settings.gradle`의 프로젝트명과 `../../../Downloads/build.gradle`의 `bootJar` 설정에 따라 달라질 수 있습니다.*
+   *JAR 이름은 `settings.gradle`의 프로젝트명의 `bootJar` 설정에 따라 달라질 수 있습니다.*
 
-기본 포트는 업로드된 `../../../Downloads/application.properties` 기준 **8082**입니다. 실행 시 MySQL 연결 및 외부 API 인증 정보가 올바르지 않으면 일부 기능이 실패할 수 있습니다.
+기본 포트는 **8082**입니다. 실행 시 MySQL 연결 및 외부 API 인증 정보가 올바르지 않으면 일부 기능이 실패할 수 있습니다.
 
 ## 7. 배포 및 운영 시 참고 사항
 
@@ -151,7 +151,7 @@ build.gradle                 # Gradle 빌드 설정
 ## 8. 참고 및 작성 기준
 
 - **팀원별 담당 업무:** 첨부된 「2조 프로젝트 결과 보고서」의 '02 팀 구성 및 역할' 슬라이드
-- **구현 구조·기술 스택:** 첨부된 `mymatzip-develop(2).zip`의 `src/main`, `../../../Downloads/build.gradle`, `.github/workflows` 확인
+- **구현 구조·기술 스택:** 첨부된 `mymatzip-develop.zip`의 `src/main`, `/build.gradle`, `.github/workflows` 확인
 - **검증 범위:** 파일과 클래스의 존재 및 설정을 확인한 것이며, 전체 기능의 통합 테스트나 서비스 운영 검증을 수행한 것은 아닙니다.
 
 ---
