@@ -659,8 +659,16 @@ document.querySelectorAll('.btn-review-delete').forEach(function (btn) {
 });
 	document.querySelectorAll('.btn-report').forEach(function (btn) {
     btn.addEventListener('click', function () {
-        if (!confirm('이 리뷰를 신고하시겠습니까?')) return;
-        fetchJson('/api/reviews/' + this.getAttribute('data-id') + '/report', { method: 'POST' })
+        const reason = prompt('신고 사유를 입력해 주세요. (예: 광고, 욕설·비방, 허위 내용 / 100자 이내)');
+        if (reason === null) return;   // 취소 버튼
+        const trimmedReason = reason.trim();
+        if (!trimmedReason) { alert('신고 사유를 입력해 주세요.'); return; }
+        if (trimmedReason.length > 100) { alert('신고 사유는 100자 이하로 입력해 주세요.'); return; }
+        fetchJson('/api/reviews/' + this.getAttribute('data-id') + '/report', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ reason: trimmedReason })
+        })
             .then(function (r) { alert(r.body.message || r.body.error || '처리되었습니다.'); });
     });
 	});

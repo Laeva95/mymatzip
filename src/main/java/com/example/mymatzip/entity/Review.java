@@ -229,6 +229,10 @@ public class Review {
     @Column(length = 500)
     private String aiSpamReason;
 
+    // 사용자가 신고할 때 적은 사유 (선택값, 최대 100자). AI 판정 근거(aiSpamReason)와는 별개
+    @Column(length = 100)
+    private String reportReason;
+
     // ──────────────────────────────────────────────────────────
     // 생성자(Constructor) 영역
     // ──────────────────────────────────────────────────────────
@@ -300,6 +304,12 @@ public class Review {
         this.reported = true;
     }
 
+    // 사유와 함께 신고 (사유는 서비스에서 다듬어서 넘겨줌, 없으면 null)
+    public void report(String reason) {
+        this.reported = true;
+        this.reportReason = reason;
+    }
+
     // AI 스팸 판정 시 기존 신고 큐를 재사용해 관리자에게 자동 신고
     public void reportAsSpam(String reason) {
         this.reported = true;
@@ -314,6 +324,7 @@ public class Review {
         this.reported = false;
         this.aiSpam = false;
         this.aiSpamReason = null;
+        this.reportReason = null;
     }
     // [추가] 도움돼요를 누른 회원 ID 목록 (중복 방지용 Set)
     @ElementCollection(fetch = FetchType.LAZY)
