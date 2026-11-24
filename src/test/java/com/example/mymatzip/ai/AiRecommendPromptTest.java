@@ -51,7 +51,7 @@ class AiRecommendPromptTest {
         String prompt = AiRecommendService.buildSystemPrompt(List.of(soup));
         assertThat(prompt).contains("번호|이름|카테고리|지역|평균별점|대표메뉴|설명");
         // 이름의 | 와 메뉴·설명의 줄바꿈이 후보 한 줄 형식을 깨지 않는다
-        assertThat(prompt).contains("1|국밥/집|국밥·탕|해운대구 해운대해변로|별점 없음(리뷰 0)|돼지국밥 ￦10,000, 수육 ￦20,000|진한 국물, 돼지국밥");
+        assertThat(prompt).contains("1|국밥/집|국밥·탕|해운대구 해운대해변로|별점 없음|돼지국밥 ￦10,000, 수육 ￦20,000|진한 국물, 돼지국밥");
         assertThat(prompt).contains("\"없음\"");
         assertThat(prompt).contains("목록에 없는 분위기·가격·위치를 지어내지 않는다");
     }
@@ -60,8 +60,23 @@ class AiRecommendPromptTest {
     void 리뷰가_없는_맛집은_별점_0점이_아니라_별점_없음으로_보낸다() {
         RestaurantResponse noReview = RestaurantResponse.builder().averageRating(0.0).reviewCount(0L).build();
         RestaurantResponse reviewed = RestaurantResponse.builder().averageRating(4.5).reviewCount(12L).build();
-        assertThat(AiRecommendService.ratingText(noReview)).isEqualTo("별점 없음(리뷰 0)");
+        assertThat(AiRecommendService.ratingText(noReview)).isEqualTo("별점 없음");
         assertThat(AiRecommendService.ratingText(reviewed)).isEqualTo("4.5(리뷰 12)");
+    }
+
+    // 실제 후보 목록은 reviewCount 를 채우지 않는다(null). 평균이 있으면 "별점 없음" 이 나오면 안 된다.
+    @Test
+    void 리뷰_수가_없어도_평균_별점이_있으면_별점을_보낸다() {
+        RestaurantResponse fromRealList = RestaurantResponse.builder().averageRating(4.5).build();
+        assertThat(AiRecommendService.ratingText(fromRealList)).isEqualTo("4.5");
+        assertThat(AiRecommendService.ratingText(RestaurantResponse.builder().averageRating(null).build()))
+                .isEqualTo("별점 없음");
+        String prompt = AiRecommendService.buildSystemPrompt(List.of(
+                RestaurantResponse.builder().id(9L).name("별점집").address("부산광역시 중구 남포길 1")
+                        .averageRating(4.5).createdAt(LocalDateTime.now()).build()));
+        assertThat(prompt).contains("9|별점집|").contains("|4.5|");
+        // 규칙 8 문장에도 "별점 없음"이 있으므로, 후보 줄(|...|) 형식으로만 확인한다
+        assertThat(prompt).doesNotContain("|별점 없음|");
     }
 
     @Test
