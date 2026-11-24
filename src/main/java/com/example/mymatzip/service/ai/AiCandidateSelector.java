@@ -65,7 +65,8 @@ public final class AiCandidateSelector {
             Map.entry("온천장", "동래구"), Map.entry("연산", "연제구"),
             Map.entry("하단", "사하구"), Map.entry("다대포", "사하구"),
             Map.entry("구포", "북구"), Map.entry("덕천", "북구"), Map.entry("명지", "강서구"),
-            Map.entry("일광", "기장군"), Map.entry("송도", "서구")
+            Map.entry("일광", "기장군"), Map.entry("송도", "서구"),
+            Map.entry("영도", "영도구")
     );
 
     // 질문 단어 점수에서 뺄 흔한 말
@@ -147,29 +148,67 @@ public final class AiCandidateSelector {
             "해운대구", "사하구", "금정구", "강서구", "연제구", "수영구", "사상구", "기장군");
 
     // 지역 이름 뒤에 붙일 수 있는 말 ("해운대근처", "광안리쪽")
-    private static final List<String> PLACE_SUFFIXES = List.of("", "근처", "쪽", "일대", "주변", "동네");
+    private static final List<String> PLACE_SUFFIXES = List.of("", "근처", "쪽", "일대", "주변", "동네",
+            "역", "동", "앞", "시장", "해수욕장", "해변", "시티", "역앞");
+
 
     private static Set<String> detectDistricts(String q) {
         List<String> tokens = placeTokens(q);
         Set<String> found = new HashSet<>();
-        for (String d : BUSAN_DISTRICTS) {
-            // "중구"·"서구" 처럼 구 전체 이름. 앞 글자가 한글이면 "강서구"의 일부이므로 제외
-            if (Pattern.compile("(?<![가-힣])" + Pattern.quote(d)).matcher(q).find()) found.add(d);
-            // "해운대구" → "해운대" 처럼 구·군을 뗀 이름 (세 글자 이상, 단어 단위로 같을 때만)
-            if (d.length() >= 3 && isPlace(tokens, d.substring(0, d.length() - 1))) found.add(d);
-        }
+        Set<String> matchedAliases = new HashSet<>();
+
+        // 1. 등록된 지역 별칭을 먼저 확인
         AREA_ALIASES.forEach((alias, district) -> {
-            if (isPlace(tokens, alias)) found.add(district);
+            if (isPlace(tokens, alias)) {
+                found.add(district);
+                matchedAliases.add(alias);
+            }
         });
+
+        // 2. 구·군 정식 명칭과 축약형 확인
+        for (String d : BUSAN_DISTRICTS) {
+            if (Pattern.compile("(?<![가-힣])" + Pattern.quote(d))
+                    .matcher(q).find()) {
+                found.add(d);
+                continue;
+            }
+
+            String shortName = d.substring(0, d.length() - 1);
+
+            // 이미 별칭으로 인식한 지역명과 겹치는 축약형은 제외
+            boolean conflictsWithAlias = matchedAliases.stream()
+                    .anyMatch(alias -> alias.startsWith(shortName)
+                            || shortName.startsWith(alias));
+
+            if (!conflictsWithAlias
+                    && d.length() >= 3
+                    && isPlace(tokens, shortName)) {
+                found.add(d);
+            }
+        }
+
         return found;
     }
+
 
     // 질문을 단어로 나누고 조사를 뗀다. 예) "해운대에서 국밥" → [해운대, 국밥]
     private static List<String> placeTokens(String q) {
         List<String> out = new ArrayList<>();
+
         for (String token : NON_WORD.split(q)) {
-            if (!token.isEmpty()) out.add(PARTICLE.matcher(token).replaceAll(""));
+            if (token.isEmpty()) continue;
+
+            // 원본 단어도 보존
+            out.add(token);
+
+            // 조사 제거한 단어도 후보에 추가
+            String withoutParticle = PARTICLE.matcher(token).replaceAll("");
+
+            if (!withoutParticle.isEmpty() && !withoutParticle.equals(token)) {
+                out.add(withoutParticle);
+            }
         }
+
         return out;
     }
 
