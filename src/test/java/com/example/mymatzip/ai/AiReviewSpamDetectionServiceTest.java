@@ -1,3 +1,4 @@
+// [C수정] 오탐 방지 스팸 규칙 테스트 보강
 package com.example.mymatzip.ai;
 
 import com.example.mymatzip.service.ai.AiReviewSpamDetectionService;
@@ -43,11 +44,19 @@ class AiReviewSpamDetectionServiceTest {
     }
 
     @Test
-    void 고신뢰_불법광고와_링크광고는_차단패턴으로_판정된다() {
+    void 명백한_불법광고만_차단하고_일반적인_링크광고는_의심으로_낮춘다() {
         assertThat(AiReviewSpamDetectionService.isDefinitelySpam("코인 투자로 고수익 보장"))
+                .isFalse();
+        assertThat(AiReviewSpamDetectionService.isDefinitelySpam("코인 투자 고수익 보장 상담 및 신청은 링크로"))
                 .isTrue();
         assertThat(AiReviewSpamDetectionService.isDefinitelySpam("무료 쿠폰은 example.com에서 신청하세요"))
+                .isFalse();
+        assertThat(AiReviewSpamDetectionService.isSuspiciousSpam("무료 쿠폰은 example.com에서 신청하세요"))
                 .isTrue();
+        assertThat(AiReviewSpamDetectionService.isDefinitelySpam("불법주차가 많아요"))
+                .isFalse();
+        assertThat(AiReviewSpamDetectionService.isDefinitelySpam("가게가 대출받아 리모델링했대요"))
+                .isFalse();
         assertThat(AiReviewSpamDetectionService.isDefinitelySpam("김치찌개가 맛있고 양도 많아요"))
                 .isFalse();
     }

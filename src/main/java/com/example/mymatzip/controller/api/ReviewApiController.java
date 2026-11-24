@@ -1,3 +1,4 @@
+// [C수정] 리뷰 페이징 제한 및 로그인 회원 상태 반영
 /*
  * ============================================================================
  *  파일명    : ReviewApiController.java
@@ -33,10 +34,9 @@ import com.example.mymatzip.service.ReviewService;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
-import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
@@ -54,23 +54,21 @@ public class ReviewApiController {
 
     // ── 1. GET /api/reviews/restaurant/{restaurantId} ───────
     // 특정 맛집의 리뷰 목록 조회 API
-    // 수정 후: sort=latest 등을 실제 엔티티 필드명(예: createdAt 또는 id)으로 변환
     @GetMapping("/restaurant/{restaurantId}")
-    public ResponseEntity<?> listByRestaurant(
+    public ResponseEntity<PageResponse<ReviewResponse>> listByRestaurant(
             @PathVariable Long restaurantId,
+            @LoginMember Member loginMember,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size,
-            @RequestParam(defaultValue = "latest") String sort) {
+            @RequestParam(defaultValue = "10") int size) {
 
-        // 프론트에서 넘어온 sort 값에 따라 실제 Review 엔티티의 필드명으로 매핑
-        Sort sortObj = switch (sort) {
-            case "rating" -> Sort.by(Sort.Direction.DESC, "rating"); // 평점순 예시
-            case "latest" -> Sort.by(Sort.Direction.DESC, "id");     // 최신순 (createdAt이 있다면 "createdAt"으로 변경)
-            default -> Sort.by(Sort.Direction.DESC, "id");
-        };
+        int safePage = Math.max(page, 0);
+        int safeSize = Math.min(Math.max(size, 1), 50);
+        Pageable pageable = PageRequest.of(safePage, safeSize,
+                Sort.by(Sort.Direction.DESC, "createdAt"));
 
-        Pageable pageable = PageRequest.of(page, size, sortObj);
-        return ResponseEntity.ok(reviewService.findByRestaurantId(restaurantId, pageable));
+        return ResponseEntity.ok(
+                reviewService.findByRestaurantId(restaurantId, pageable, loginMember)
+        );
     }
 
     // ── 2. POST /api/reviews ────────────────────────────────
