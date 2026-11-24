@@ -78,7 +78,8 @@ API: GET /api/admin/reviews, GET /api/admin/reviews/reported, DELETE /api/admin/
                     : '<span class="text-muted">정상</span>';
 
                 return '<tr><td>' + Number(x.id) + '</td>' +
-                    '<td>' + (x.reported ? '<span class="badge bg-danger me-1">신고</span>' : '') + esc(content) + '</td>' +
+                    '<td>' + (x.reported ? '<span class="badge bg-danger me-1" title="' + esc(x.reportReason || '') + '">신고</span>' : '') + esc(content) +
+                    (x.reportReason ? '<div class="small text-danger mt-1">신고 사유: ' + esc(x.reportReason) + '</div>' : '') + '</td>' +
                     '<td class="rating-stars">' + renderStars(x.rating) + '</td>' +
                     '<td>' + esc(x.memberNickname) + '</td><td>' + esc(x.restaurantName) + '</td>' +
                     '<td>' + esc(formatDateTime(x.createdAt)) + '</td>' +
