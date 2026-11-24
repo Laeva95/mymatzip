@@ -1,8 +1,10 @@
-package com.example.mymatzip.service.ai;
+package com.example.mymatzip.ai;
 
 import com.example.mymatzip.dto.RestaurantResponse;
 import com.example.mymatzip.entity.Category;
 import com.example.mymatzip.service.RestaurantService;
+import com.example.mymatzip.service.ai.AiRecommendService;
+import com.example.mymatzip.service.ai.AiUsageLimiter;
 import org.junit.jupiter.api.Test;
 import org.springframework.ai.chat.client.ChatClient;
 

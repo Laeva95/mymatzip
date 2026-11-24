@@ -231,12 +231,41 @@ public class OwnerApplicationService {
 
         application.approve(); // PENDING 이 아니면 IllegalStateException
 
+        // 같은 사업자번호로 다른 회원이 이미 승인받았으면 막음 (한 사업자 = 사장 계정 하나)
+        //   신청할 때도 검사하지만, 다른 회원 두 명이 몇 초 차이로 동시에 신청하면 둘 다 심사 중으로 들어올 수 있음
+        //   → 관리자가 둘 다 승인하는 일을 여기서 막음 (마지막 확인 단계)
+        //   테스트 신청은 검사하지 않음 (신청할 때와 같은 규칙: 시연용 번호는 중복 허용)
+        //   예외는 이 메서드의 트랜잭션을 되돌리므로 위 approve() 로 바뀐 상태도 저장되지 않음 → 계속 PENDING (반려 가능)
+        if (!application.isTestApplication() && isApprovedByOtherMember(application)) {
+            throw new IllegalStateException("같은 사업자등록번호로 이미 승인된 다른 회원이 있어 승인할 수 없습니다. "
+                    + "신청 내용을 확인한 뒤 반려해주세요.");
+        }
+
         // 심사 도중 관리자가 회원 관리에서 역할을 직접 바꿨을 수도 있으므로
         // USER 일 때만 OWNER 로 올림 (ADMIN 을 OWNER 로 내리는 일 방지)
         Member member = application.getMember();
         if (member.getRole() == Role.USER) {
             member.changeRole(Role.OWNER);
         }
+    }
+
+    // 같은 사업자번호로 다른 회원의 실제 신청이 승인돼 있는지
+    //   예전 신청은 하이픈이 붙어 저장돼 있을 수 있어서 "1234567891" 과 "123-45-67891" 두 모양으로 확인
+    //   (DB 의 하이픈을 모두 지운 뒤에는 첫 번째 확인만으로 충분)
+    private boolean isApprovedByOtherMember(OwnerApplication application) {
+        String digits = digitsOnly(application.getBusinessNumber());
+        Long memberId = application.getMember().getId();
+        List<OwnerApplicationStatus> approved = List.of(OwnerApplicationStatus.APPROVED);
+        if (ownerApplicationRepository.existsByBusinessNumberAndStatusInAndMemberIdNotAndTestApplicationFalse(
+                digits, approved, memberId)) {
+            return true;
+        }
+        if (digits.length() != 10) {
+            return false;
+        }
+        String dashed = digits.substring(0, 3) + "-" + digits.substring(3, 5) + "-" + digits.substring(5);
+        return ownerApplicationRepository.existsByBusinessNumberAndStatusInAndMemberIdNotAndTestApplicationFalse(
+                dashed, approved, memberId);
     }
 
     // ── 관리자: 반려 ────────────────────────────────────────────
