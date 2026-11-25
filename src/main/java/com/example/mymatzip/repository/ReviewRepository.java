@@ -27,10 +27,12 @@ package com.example.mymatzip.repository;
 // Review 엔티티 가져오기 — 이 Repository가 다룰 대상(테이블)
 // entity 패키지의 Review 클래스 = DB의 review 테이블과 매핑된 객체
 import com.example.mymatzip.entity.Review;
+import com.example.mymatzip.entity.ReviewModerationStatus;
 
 // JpaRepository 가져오기 — Spring Data JPA가 제공하는 "만능 창구" 인터페이스
 // 이것을 상속(extends)하면 save, findById, findAll, delete 등이 자동 제공됨
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 
 // @Query 어노테이션 가져오기 — 메서드 이름 규칙으로 표현하기 어려운 복잡한 쿼리를
 // JPQL(Java Persistence Query Language)로 직접 작성할 때 사용합니다.
@@ -51,6 +53,9 @@ import org.springframework.data.domain.Pageable;
 // List 가져오기 — 여러 개의 데이터를 담는 "목록" 자료구조
 // 리뷰는 여러 개가 조회될 수 있으므로 List<Review>로 반환합니다.
 import java.util.List;
+import java.util.Collection;
+import java.util.Optional;
+import java.time.LocalDateTime;
 
 // ★ interface(인터페이스) 선언
 // 클래스(class)가 아니라 인터페이스(interface)인 이유:
@@ -274,4 +279,46 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
         Double getAverageRating();
         Long getReviewCount();
     }
+
+    // ==========================================
+    // AI 리뷰 스팸 검토 배치 처리용 메서드
+    // ==========================================
+
+    // 검토 상태별 리뷰 개수
+    long countByModerationStatus(ReviewModerationStatus status);
+
+    // 가장 오래 대기 중인 리뷰 조회
+    Optional<Review> findFirstByModerationStatusOrderByModerationPendingSinceAsc(
+            ReviewModerationStatus status);
+
+    // 검토 대상 리뷰 ID 조회
+    @Query("SELECT r.id FROM Review r " +
+            "WHERE r.moderationStatus = :status " +
+            "ORDER BY r.moderationPendingSince ASC, r.id ASC")
+    List<Long> findIdsByModerationStatus(
+            @Param("status") ReviewModerationStatus status,
+            Pageable pageable);
+
+    // 검토 상태 일괄 변경
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("UPDATE Review r " +
+            "SET r.moderationStatus = :to, " +
+            "r.moderationClaimedAt = :now " +
+            "WHERE r.id IN :ids " +
+            "AND r.moderationStatus = :from")
+    int updateModerationStatus(
+            @Param("ids") Collection<Long> ids,
+            @Param("from") ReviewModerationStatus from,
+            @Param("to") ReviewModerationStatus to,
+            @Param("now") LocalDateTime now);
+
+    // 오래된 REVIEWING 상태를 PENDING으로 복구
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("UPDATE Review r " +
+            "SET r.moderationStatus = com.example.mymatzip.entity.ReviewModerationStatus.PENDING, " +
+            "r.moderationClaimedAt = null " +
+            "WHERE r.moderationStatus = com.example.mymatzip.entity.ReviewModerationStatus.REVIEWING " +
+            "AND r.moderationClaimedAt < :before")
+    int recoverStuckReviewing(
+            @Param("before") LocalDateTime before);
 }
