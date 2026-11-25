@@ -157,9 +157,14 @@ dependencies {
 }
 
 // ── 테스트 실행 설정 ────────────────────────────────────────
-tasks.named('test') {
-	useJUnitPlatform()
-}
+	tasks.named('test') {
+		useJUnitPlatform()
+
+		// Mockito Java Agent 명시적 등록 (JDK 21+ 경고 제거)
+		jvmArgs += "-javaagent:${configurations.testRuntimeClasspath.find { it.name.contains('byte-buddy-agent') }}"
+	}
+
+
 
 // ============================================================
 // 배포 파일: ./gradlew bootJar → build/libs/my-matzip.jar (제출 파일 "프로젝트명.jar")
