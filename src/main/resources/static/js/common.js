@@ -5,6 +5,18 @@
  * fragments/layout.html 의 footer 조각이 이 파일을 불러오므로 모든 화면에서 사용할 수 있다.
  * 서버에서 받은 글(맛집 이름, 리뷰, AI 답 등)을 innerHTML 로 넣을 때는 반드시 esc() 를 거친다.
  * (DB 에는 원문이 저장되어 있으므로, 출력할 때 이스케이프하지 않으면 XSS 가 발생한다)
+ *
+ * 함수 목록
+ *   esc(value)                         HTML 이스케이프
+ *   renderStars(rating, withNumber)    별점 아이콘 (0.5 단위 반올림, 반쪽 별)
+ *   markActiveNav()                    상단 메뉴 현재 위치 강조 (layout.html footer 가 호출)
+ *   formatDateTime(value)              "2026-10-28T14:30:00" → "2026-10-28 14:30"
+ *   formatBusinessNumber(value)        "1234567891" → "123-45-67891" (사장 신청 화면)
+ *   formatPhone(value)                 "01012345678" → "010-1234-5678" (사장 신청 화면)
+ *   restaurantCardHtml(r, extra, opts) 맛집 카드 HTML (list.html 검색 결과, home.html AI 추천)
+ *   renderPagination(...)              페이지 번호 버튼 (mypage, 관리자 목록 화면)
+ *   fetchJson(url, options)            fetch 결과를 { ok, status, body } 로 (세션 만료도 401 로)
+ * 함수를 고칠 때는 이 함수를 부르는 화면을 모두 검색해서 영향이 없는지 확인한다 (여러 팀원 화면이 함께 씀)
  * ============================================================
  */
 

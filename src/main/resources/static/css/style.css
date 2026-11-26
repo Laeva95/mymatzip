@@ -11,6 +11,12 @@
  *
  * fragments/layout.html 의 head 조각에서 Bootstrap CSS "다음에" 불러와야 덮어쓰기가 된다.
  * HTML 클래스는 그대로 두고, Bootstrap 변수와 기존 클래스를 다시 꾸미는 방식이다.
+ * 모든 화면에 적용되므로 클래스 이름을 넓게(.card, .btn 등) 바꿀 때는 다른 팀원 화면도 함께 확인한다.
+ *
+ * 이 파일 밖에 있는 스타일
+ *   static/css/wishlist-heart.css : 카드 찜 하트 버튼 가운데 정렬 (D 찜 담당, list.html · home.html 이 불러옴)
+ *   각 화면의 <style>              : 그 화면에서만 쓰는 스타일 (예: list.html 의 .sort-bar)
+ *   .card-counts(별점 옆 리뷰 수 · 찜 수)는 이 파일 5번에 있고, list.html <style> 에도 같은 값이 있다
  * ============================================================
  */
 

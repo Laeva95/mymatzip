@@ -8,6 +8,12 @@
   → restaurants : List<RestaurantResponse> 최신 맛집 6개 (별점 · 리뷰 수 reviewCount · 찜 수 wishlistCount 포함)
   loginMember   : GlobalModelAdvice 가 넣는 로그인 회원 (없으면 null)
 AI 추천: 아래 추천 폼 → fetch POST /api/ai/recommend → AiApiController.recommend()
+  응답 카드는 common.js 의 restaurantCardHtml(r, extra, { defaultImage, counts, wishHeart }) 로 그림
+  (AiRecommendService 가 고른 맛집에만 리뷰 수 · 찜 수를 채워 보냄)
+찜 하트: 최근 맛집 카드 · AI 추천 카드 오른쪽 위. wishlist-heart.js(D 찜 담당, 불러오기만 함)의
+  WishHeart.init() 이 GET /api/wishlists 로 내 찜 상태를 칠하고, 누르면 POST · DELETE /api/wishlists/{id}
+  같은 맛집 하트가 두 개(최근 + AI 추천)일 때 동시에 눌리지 않게 아래 스크립트에서 막음
+  (서버도 wishlist UNIQUE 제약 + 409 로 중복 찜을 막음)
 ============================================================
 */-->
 <html lang="ko" xmlns:th="http://www.thymeleaf.org">
@@ -122,8 +128,8 @@ AI 추천: 아래 추천 폼 → fetch POST /api/ai/recommend → AiApiControlle
         <!--/* th:each="restaurant : ${restaurants}" : HomeController 가 넣은 List<RestaurantResponse> 반복 */-->
         <div class="col-md-6 col-lg-4" th:each="restaurant : ${restaurants}">
             <div class="card h-100">
-                <!--/* th:if="${restaurant.imageUrl}" : 문자열이 null 이거나 비면 거짓 → img 태그를 만들지 않음
-                       th:src : src 속성 값을 RestaurantResponse.getImageUrl() 로 채운다 */-->
+                <!--/* th:src="${a} ?: ${b}" : 사진 주소(imageUrl)가 없으면 카테고리 기본 이미지(defaultImageUrl)
+                       onerror : 사진이 깨지면 data-default 의 기본 이미지로 한 번만 바꿈 (맛집 목록 · 상세와 같은 방식) */-->
                 <img th:src="${restaurant.imageUrl} ?: ${restaurant.defaultImageUrl}" th:alt="${restaurant.name}"
                      th:attr="data-default=${restaurant.defaultImageUrl}"
                      onerror="this.onerror=null;this.src=this.dataset.default;"

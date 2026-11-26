@@ -70,9 +70,10 @@ public class HomeController {
     private final HomeService homeService;
 
     // ── GET / ───────────────────────────────────────────────
-    // 메인(홈) 페이지: 최신 맛집 6개를 포함한 홈 화면을 보여줌
-    // 요청 예시: GET http://localhost:8080/
-    //   (브라우저 주소창에 http://localhost:8080 입력 시)
+    // 메인(홈) 페이지: 최근 등록된 맛집 6개(별점 · 리뷰 수 · 찜 수 포함)를 서버에서 그리고,
+    //   AI 맛집 추천 · 찜 하트는 화면이 열린 뒤 JavaScript 가 API 로 처리 (home.html)
+    // 요청 예시: GET http://localhost:8082/
+    //   (브라우저 주소창에 http://localhost:8082 입력 시. 배포 서버는 도메인 주소)
     // 응답: home.html 페이지를 HTML로 렌더링하여 반환
     //
     // @GetMapping("/"): GET 방식으로 "/" (루트 경로) 요청이 오면 실행
@@ -105,7 +106,7 @@ public class HomeController {
 
     // ── GET /wishlists ──────────────────────────────────────
     // 찜 목록 페이지: 내가 찜한 맛집 목록을 보는 화면을 보여줌
-    // 요청 예시: GET http://localhost:8080/wishlists
+    // 요청 예시: GET http://localhost:8082/wishlists
     // 응답: wishlist/list.html 페이지를 HTML로 렌더링하여 반환
     //
     // 이 페이지는 서버에서 데이터를 미리 담지 않고,

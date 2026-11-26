@@ -35,7 +35,12 @@ import java.util.Optional;
 //   2단계 국세청 API    : 사업자번호 + 개업일자 + 대표자 성명 일치 여부, 계속사업자(영업 중)인지
 //   그다음 관리자 심사(3단계)에서 가게 대표번호로 확인 전화 등으로 실제 사장인지 확인
 //   테스트 신청(form.testMode, 시연용): 2단계를 국세청 대신 테스트 번호표로 처리하고 testApplication = true 로 저장
-//     → 관리자 화면에 "테스트 신청 · 국세청 확인 안 함"으로 보이므로, 승인할지는 관리자가 판단
+//     → 관리자 화면에 "테스트 신청 · 국세청 확인 안 함"으로 보이고, 승인할 때 경고 창이 따로 뜸. 승인할지는 관리자가 판단
+//
+// 그 밖의 신청 검사: 부산 주소("부산광역시 …"로 통일) · 개업일자(실제 날짜 · 미래 아님) · 숫자만 남겨 저장(전화 · 사업자번호)
+// 중복 방지
+//   같은 회원: 심사 중 신청은 하나만 (저장 직전 회원 행 잠금 후 다시 확인)
+//   같은 사업자번호: 다른 회원이 심사 중 · 승인된 "실제" 신청이 있으면 신청 불가, 승인할 때도 다시 확인 (테스트 신청은 제외)
 @Service
 @Transactional(readOnly = true)
 public class OwnerApplicationService {
@@ -64,8 +69,11 @@ public class OwnerApplicationService {
 
     // ── 사장 신청 (일반 회원) ──────────────────────────────────
     // NOT_SUPPORTED: 이 메서드 전체를 트랜잭션으로 묶지 않음
-    //   국세청 API 호출(최대 십여 초)을 하는 동안 회원 행 잠금 · DB 연결을 붙잡고 있지 않도록
+    //   국세청 API 호출(최대 십여 초)을 하는 동안 회원 행 "잠금"을 붙잡고 있지 않도록
     //   ① 미리 확인(잠금 없음) → ② 국세청 확인 → ③ 잠금 걸고 다시 확인 + 저장(transactionTemplate)
+    // ※ DB "커넥션"은 다르다: open-in-view 가 켜져 있어서(기본값) 웹 요청에서 ①로 DB 를 한 번 쓰면
+    //   요청이 끝날 때까지 커넥션을 반납하지 않는다 → ② 동안에도 커넥션 1개를 점유 (풀 5개).
+    //   잠금은 ③에서만 걸리므로 다른 요청을 막지는 않는다. 커넥션까지 풀려면 spring.jpa.open-in-view=false 가 필요
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public OwnerApplication apply(Long memberId, OwnerApplicationForm form) {
         // 번호는 숫자만 저장 (하이픈 제거). 형식은 OwnerApplicationForm 의 @Pattern 이 이미 확인함
