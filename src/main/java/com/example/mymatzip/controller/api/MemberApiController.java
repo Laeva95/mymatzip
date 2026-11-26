@@ -106,6 +106,7 @@ import org.springframework.web.bind.annotation.RestController;
 // Map: 키-값 쌍으로 데이터를 저장하는 자료구조
 // JSON 응답을 만들 때 사용 (예: Map.of("error", "에러 메시지") → {"error": "에러 메시지"})
 import java.util.Map;
+import java.util.Set;
 
 import com.example.mymatzip.service.EmailAuthService;
 
@@ -145,6 +146,12 @@ public class MemberApiController {
     private final JwtTokenProvider jwtTokenProvider;
 
     private final EmailAuthService emailAuthService; // [11/19 추가]
+
+    // 이메일 인증 예외 계정 목록 (테스트/시연용) [11/26 추가]
+    private static final Set<String> EMAIL_VERIFY_BYPASS_EMAILS = Set.of(
+            "user1@test.com",
+            "user2@test.com"
+    );
 
     // ── POST /api/members/signup ────────────────────────────
     // 회원가입 API: JSON으로 받은 회원 정보를 DB에 저장
@@ -223,8 +230,11 @@ public class MemberApiController {
             //   - 일치하면 Member 객체 반환, 불일치하면 예외 발생
             Member member = memberService.login(form);
 
-            // ── 1.5단계: 일반 회원만 이메일 인증 완료 여부 검증 (관리자는 예외) ─── [11/19 수정]
-            if (member.getRole() != Role.ADMIN && !emailAuthService.consumeVerifiedEmail(form.getEmail())) {
+            // ── 1.5단계: 일반 회원만 이메일 인증 완료 여부 검증 (관리자 및 지정 테스트 계정 예외) ─── [11/26 수정]
+            boolean isBypass = member.getRole() == Role.ADMIN
+                    || EMAIL_VERIFY_BYPASS_EMAILS.contains(member.getEmail());
+
+            if (!isBypass && !emailAuthService.consumeVerifiedEmail(form.getEmail())) {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                         .body(Map.of("error", "이메일 인증을 먼저 완료해주세요."));
             }
