@@ -18,7 +18,12 @@
  *
  *  ■ URL 매핑
  *    이 파일은 특정 URL에 매핑되지 않습니다.
- *    모든 @RestController에서 발생하는 예외를 자동으로 가로채서 처리합니다.
+ *    컨트롤러에서 잡지 않고 던진 위 두 예외를 자동으로 가로채서 400 + {"error": "..."} 로 응답합니다.
+ *    (컨트롤러가 try-catch 로 직접 잡은 예외는 여기까지 오지 않음. 예: 사장 신청의 409 · 503)
+ *
+ *  ■ 이 파일이 처리하지 않는 예외
+ *    IllegalStateException 등은 각 컨트롤러가 직접 상태 코드로 바꾸고,
+ *    그래도 남은 예외는 Spring Boot 기본 오류 처리(error.html / JSON)로 넘어갑니다.
  * ============================================================================
  */
 
@@ -40,9 +45,9 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 // @ExceptionHandler: 특정 예외가 발생했을 때 이 메서드가 처리하겠다고 표시하는 어노테이션
 import org.springframework.web.bind.annotation.ExceptionHandler;
 
-// @RestControllerAdvice: 모든 @RestController에 적용되는 "전역 조언자"
-// @ControllerAdvice + @ResponseBody를 합친 것
-// 모든 REST 컨트롤러에서 발생하는 예외를 이 클래스가 가로채서 처리합니다.
+// @RestControllerAdvice: 컨트롤러 전체에 적용되는 "전역 조언자"
+// @ControllerAdvice + @ResponseBody를 합친 것 (응답을 JSON 으로 만듦)
+// 범위를 따로 정하지 않았으므로 @RestController 뿐 아니라 화면용 @Controller 에서 던진 예외도 가로챕니다.
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 // Map: 키-값 쌍으로 데이터를 저장하는 자바 자료구조
@@ -50,8 +55,11 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import java.util.Map;
 
 // ── @RestControllerAdvice 어노테이션 ────────────────────────
-// 이 클래스가 모든 @RestController의 예외를 전역적으로 처리하는 "조언자"임을 선언합니다.
-// "RestController" → REST API 컨트롤러에서 발생하는 예외만 처리
+// 이 클래스가 컨트롤러에서 발생한 예외를 전역적으로 처리하는 "조언자"임을 선언합니다.
+// "Rest" → 처리 결과를 JSON 으로 응답 ({"error": "..."})
+//   ※ 화면용 @Controller 메서드가 IllegalArgumentException 을 던져도 error.html 대신 JSON 400 이 나간다.
+//     화면 컨트롤러는 예외를 직접 잡아 처리하거나(redirect 등), 적용 범위를 API 로 좁히려면
+//     @RestControllerAdvice(annotations = RestController.class) 처럼 지정한다.
 // "Advice" → "조언/보조" 역할 (컨트롤러를 보조하여 에러 처리를 대신 해줌)
 @RestControllerAdvice
 // ── 클래스 선언 ─────────────────────────────────────────────

@@ -9,6 +9,11 @@ API: GET  /api/admin/owner-applications?status=PENDING|APPROVED|REJECTED&page=0&
 목록에서는 주소·남긴 말·반려 사유를 한 줄 말줄임으로 보여주고, 행을 클릭하면 바로 아래에 전체 내용이 펼쳐짐
 사업자번호 아래 배지: 시연용 테스트 신청(testApplication)만 노란 "테스트 신청" 배지로 표시
 국세청 확인 결과(businessStatus, businessVerifiedAt)는 행을 펼친 상세에서 확인
+연락처 · 사업자번호는 DB 에 숫자만 있고, 보여줄 때만 하이픈 (common.js formatPhone · formatBusinessNumber)
+승인: 테스트 신청이면 "국세청 확인을 거치지 않은 시연용 신청" 경고 창을 따로 띄움 (승인하면 실제 OWNER 권한이 생김)
+      같은 사업자번호로 다른 회원이 이미 승인됐으면 서버가 409 로 막고 그 안내를 보여 줌
+결과 안내: 성공이면 서버 message, 실패면 서버 error(없으면 "처리하지 못했습니다. (오류 코드)"),
+          서버에 연결하지 못하면 "서버에 연결할 수 없습니다" (resultMessage · networkError)
 */-->
 <html lang="ko" xmlns:th="http://www.thymeleaf.org">
 <head th:replace="~{fragments/layout :: head('사장 신청 심사')}"></head>

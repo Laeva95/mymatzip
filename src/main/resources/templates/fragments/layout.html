@@ -4,9 +4,14 @@
 [fragments/layout.html] 모든 화면이 함께 쓰는 조각(fragment) 모음 (팀장 담당)
 ============================================================
 이 파일은 단독 화면이 아니다. 다른 화면이 th:replace 로 필요한 조각만 가져다 쓴다.
-  head(title) : <head> 전체 (Bootstrap CSS, 공통 스타일)
-  header      : 상단 메뉴(네비게이션 바)
-  footer      : 하단 영역 + Bootstrap JS + common.js
+  head(title) : <head> 전체 (Bootstrap 5.3 CSS, Bootstrap Icons, static/css/style.css, 공통 스타일)
+  header      : 상단 메뉴(네비게이션 바). 권한별로 메뉴가 다름
+                  비로그인 : 맛집 목록 · 로그인 · 회원가입
+                  USER     : + 사장 신청 · 마이페이지 · 로그아웃
+                  OWNER    : + 맛집 등록 · 마이페이지 · 로그아웃
+                  ADMIN    : + 맛집 등록 · 마이페이지 · 관리자 · 로그아웃
+  footer      : 하단 영역 + Bootstrap JS + common.js + 현재 메뉴 강조(markActiveNav)
+                화면별 <script> 는 이 조각 다음에 두어야 esc() · fetchJson() 등을 쓸 수 있다
 
 값은 어디서 오나?
   loginMember : GlobalModelAdvice 클래스의 @ModelAttribute("loginMember") 메서드가

@@ -16,6 +16,10 @@ import jakarta.persistence.*;
 import org.hibernate.annotations.BatchSize;
 import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
+import java.time.LocalDateTime;
+import jakarta.persistence.Column;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 // JPA(Java Persistence API) 관련 어노테이션을 모두 가져옵니다.
 // 포함된 것들:
 //   @Entity -- 이 클래스가 DB 테이블임을 선언
@@ -45,7 +49,6 @@ import lombok.NoArgsConstructor;
 // Lombok의 기본 생성자 자동 생성 어노테이션
 // JPA가 DB 데이터를 객체로 변환할 때 필요한 빈 생성자를 만들어줌
 
-import java.time.LocalDateTime;
 // 날짜+시간을 저장하는 자바 표준 클래스
 // 리뷰 작성일(createdAt) 필드에 사용
 // 예: 2026-03-13T14:30:00
@@ -135,6 +138,7 @@ public class Review {
     //   예: 5(최고), 4(좋음), 3(보통), 2(별로), 1(최악)
     private int rating;  // 1~5
 
+
     // ──────────────────────────────────────────────────────────
     // 관계(Relationship) 필드 -- 다른 엔티티와의 연결을 표현합니다
     // ──────────────────────────────────────────────────────────
@@ -215,6 +219,19 @@ public class Review {
     @Column(length = 500) // 또는 1000
     private String imageUrl;
 
+    // AI 리뷰 검토 상태
+    @Enumerated(EnumType.STRING)
+    @Column(name = "moderation_status", nullable = false, length = 20,
+            columnDefinition = "varchar(20) not null default 'NORMAL'")
+    private ReviewModerationStatus moderationStatus = ReviewModerationStatus.NORMAL;
+
+    // AI 검토 대기 시작 시간
+    @Column(name = "moderation_pending_since")
+    private LocalDateTime moderationPendingSince;
+
+    // AI 검토 시작 시간
+    @Column(name = "moderation_claimed_at")
+    private LocalDateTime moderationClaimedAt;
 
     // [Phase 10] 신고 여부 (기본값: false)
     // 다른 사용자가 이 리뷰를 신고하면 true로 변경됩니다.
@@ -249,7 +266,6 @@ public class Review {
     //   [참고] createdAt은 자동으로 현재 시간이 들어갑니다.
     //   [참고] id는 DB가 자동 생성하므로 넣지 않습니다.
     //   [참고] 모든 매개변수(content, rating, member, restaurant)는 필수입니다.
-    @Builder
 
     // 매개변수 4개:
     //   String content -- 리뷰 내용/본문 (필수, 최대 1000자)
@@ -262,6 +278,7 @@ public class Review {
     //   Member member -- 리뷰 작성자 회원 객체 (필수)
     //   Restaurant restaurant -- 리뷰 대상 맛집 객체 (필수)
     //   String imageUrl -- [Phase 7] 리뷰 이미지 URL (선택, null 가능)
+    @Builder
     public Review(String content, int rating, Member member, Restaurant restaurant,
                   String imageUrl) {
         this.content = content;
@@ -325,6 +342,19 @@ public class Review {
         this.aiSpam = false;
         this.aiSpamReason = null;
         this.reportReason = null;
+    }
+    // AI 검토 대기 상태로 변경
+    public void markPendingReview() {
+        this.moderationStatus = ReviewModerationStatus.PENDING;
+        this.moderationPendingSince = LocalDateTime.now();
+        this.moderationClaimedAt = null;
+    }
+
+    // 관리자가 정상 리뷰로 승인
+    public void approveByAdmin() {
+        this.moderationStatus = ReviewModerationStatus.NORMAL;
+        this.moderationPendingSince = null;
+        this.moderationClaimedAt = null;
     }
     // [추가] 도움돼요를 누른 회원 ID 목록 (중복 방지용 Set)
     @ElementCollection(fetch = FetchType.LAZY)

@@ -18,8 +18,10 @@
 //   4) Controller가 JSON으로 변환하여 클라이언트에 전송
 //
 // 사용되는 곳:
-//   - RestaurantService (맛집 목록 페이징 조회)
-//   - ReviewService (리뷰 목록 페이징 조회)
+//   - RestaurantService (맛집 목록 페이징 · 정렬 조회) → RestaurantViewController (list.html)
+//   - ReviewService (리뷰 목록 페이징 조회) → ReviewApiController (GET /api/reviews/restaurant/{id}, detail.html "더 보기")
+//   ※ 관리자 목록 API(AdminApiController, OwnerApplicationAdminApiController)는 이 DTO 대신
+//     Map { content, totalPages, totalElements, currentPage } 를 돌려준다
 // ============================================================
 
 // --- 패키지 선언 ---

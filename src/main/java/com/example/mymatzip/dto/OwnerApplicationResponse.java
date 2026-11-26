@@ -11,6 +11,9 @@ import java.time.LocalDateTime;
 // ============================================================
 // 사용처: 내 신청 조회(/api/owner-applications/me), 관리자 목록(/api/admin/owner-applications)
 // 엔티티를 그대로 JSON 으로 내보내지 않고 필요한 값만 담습니다. (LAZY member 직렬화 오류 방지)
+// phone · businessNumber 는 DB 에 저장된 그대로(숫자만) 보내고, 화면이 보여줄 때 하이픈을 붙인다
+//   (common.js formatPhone · formatBusinessNumber ← owner/apply.html, admin/owner-applications.html)
+// 대표자 성명 · 개업일자는 저장하지 않으므로 응답에도 없음
 @Getter
 @Builder
 public class OwnerApplicationResponse {

@@ -13,7 +13,7 @@
 // 플러그인 = 프로젝트에 특수 기능을 추가하는 "확장팩"
 plugins {
 	id 'java'           // Java 소스 코드를 컴파일(.java → .class)하는 기능 추가
-	id 'org.springframework.boot' version '4.1.2'           // Spring Boot 3.4.3 프레임워크 지원
+	id 'org.springframework.boot' version '4.1.2'           // Spring Boot 4.1.2 (Spring Framework 7 · Spring Security 7 · Hibernate 7)
 	id 'io.spring.dependency-management' version '1.1.7'    // 의존성 버전을 Spring Boot에 맞게 자동 관리
 }
 
@@ -113,14 +113,16 @@ dependencies {
 	// ══════════════════════════════════════════════════════════
 	implementation platform('software.amazon.awssdk:bom:2.30.0')
 	implementation 'software.amazon.awssdk:s3'
-	// ↑ AWS SDK v2 의 S3 클라이언트. app.storage=s3 일 때 S3StorageService 가 사용한다.
+	// ↑ AWS SDK v2 의 S3 클라이언트. app.storage=s3 일 때 FileService 가 맛집 · 리뷰 사진을 올리고 읽는다.
+	//   AWS 키는 코드에 없고 SDK 가 ~/.aws/credentials(내 PC) 또는 EC2 IAM 역할에서 자동으로 찾는다.
 
 	// ══════════════════════════════════════════════════════════
 	// ── 데이터베이스 드라이버 ──
 	// ══════════════════════════════════════════════════════════
 	testRuntimeOnly 'com.h2database:h2'
-	// ↑ H2: 테스트(GitHub Actions CI) 전용 메모리 DB. 실행은 MySQL 8 을 쓴다
-	//   서버를 끄면 데이터 소멸 → dev 프로필에서 사용
+	// ↑ H2: 테스트 전용 메모리 DB (testRuntimeOnly 라 실행 jar 에는 들어가지 않음)
+	//   테스트는 @ActiveProfiles("test") → src/test/resources/application-test.properties 의 H2 를 쓴다.
+	//   GitHub Actions CI 도 이 H2 로 테스트하므로 MySQL 없이 돌아간다.
 
 	runtimeOnly 'com.mysql:mysql-connector-j'
 	// ↑ MySQL 드라이버: MySQL 데이터베이스 연결용
@@ -150,16 +152,21 @@ dependencies {
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 
 	// ══════════════════════════════════════════════════════════
-	// ── WAR 배포용 ──
+	// ── 메일 발송 (회원가입 · 로그인 이메일 인증번호) ──
 	// ══════════════════════════════════════════════════════════
-
 	implementation 'org.springframework.boot:spring-boot-starter-mail'
+	// ↑ JavaMailSender: Gmail SMTP 로 인증번호 메일 발송 (application.properties 의 spring.mail.* , MAIL_USERNAME · MAIL_PASSWORD)
 }
 
 // ── 테스트 실행 설정 ────────────────────────────────────────
-tasks.named('test') {
-	useJUnitPlatform()
-}
+	tasks.named('test') {
+		useJUnitPlatform()
+
+		// Mockito Java Agent 명시적 등록 (JDK 21+ 경고 제거)
+		jvmArgs += "-javaagent:${configurations.testRuntimeClasspath.find { it.name.contains('byte-buddy-agent') }}"
+	}
+
+
 
 // ============================================================
 // 배포 파일: ./gradlew bootJar → build/libs/my-matzip.jar (제출 파일 "프로젝트명.jar")

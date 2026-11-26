@@ -29,6 +29,10 @@ public interface OwnerApplicationRepository extends JpaRepository<OwnerApplicati
     //   테스트 신청(testApplication = true)은 세지 않음 → 시연에서 쓴 번호가 실제 신청을 막지 않음
     // 예: existsByBusinessNumberAndStatusInAndMemberIdNotAndTestApplicationFalse("1234567891", List.of(PENDING, APPROVED), 회원ID)
     //   번호는 숫자만 저장되므로 숫자만으로 비교 (OwnerApplicationService.digitsOnly)
+    // 사용처 두 곳
+    //   신청할 때(apply)  : PENDING · APPROVED 로 검사 — 국세청 확인 전 1번, 저장 직전(회원 행 잠금 후) 1번
+    //   승인할 때(approve): APPROVED 만 검사 — 다른 회원 두 명이 동시에 신청해 둘 다 심사 중이 된 경우 둘 다 승인되는 것 방지
+    //                      (하이픈이 남은 예전 데이터도 잡으려고 "123-45-67891" 모양으로도 한 번 더 검사)
     boolean existsByBusinessNumberAndStatusInAndMemberIdNotAndTestApplicationFalse(
             String businessNumber, Collection<OwnerApplicationStatus> statuses, Long memberId);
 
@@ -41,6 +45,7 @@ public interface OwnerApplicationRepository extends JpaRepository<OwnerApplicati
 
     // 승인/반려 처리용 조회. 행에 쓰기 잠금(SELECT ... FOR UPDATE)을 걸어
     // 관리자 두 명이 같은 신청을 동시에 승인·반려해도 한 명만 처리되게 함
+    // join fetch 로 신청자(member) 행도 함께 잠김 → 승인 중에 같은 회원의 신청 저장(findMemberForUpdate)과도 순서가 정해짐
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select a from OwnerApplication a join fetch a.member where a.id = :id")
     Optional<OwnerApplication> findByIdForUpdate(@Param("id") Long id);

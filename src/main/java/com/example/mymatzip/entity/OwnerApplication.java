@@ -14,12 +14,14 @@ import java.time.LocalDateTime;
 // [OwnerApplication.java] 식당 사장 권한 신청 엔티티 -- DB 의 owner_application 테이블
 // ============================================================
 //
-// 흐름: 일반 회원(USER)이 신청 → status = PENDING
+// 흐름: 일반 회원(USER)이 신청 → 국세청 확인 통과 → status = PENDING 으로 저장
 //       관리자가 승인 → approve()  → status = APPROVED, (서비스에서) member.changeRole(OWNER)
 //       관리자가 반려 → reject(사유) → status = REJECTED, rejectReason 저장
+//       (검사 · 잠금 · 트랜잭션은 OwnerApplicationService 에서)
 //
 // 한 회원이 여러 번 신청할 수 있습니다. (반려 후 재신청)
 // 단, PENDING 상태 신청은 한 번에 하나만 있어야 하며 서비스에서 검사합니다.
+// 같은 사업자번호로 다른 회원이 심사 중이거나 승인받은 "실제" 신청이 있으면 신청 · 승인 모두 막습니다 (테스트 신청은 제외).
 //
 // DB 테이블 구조:
 //   | id | member_id | store_name | address | phone | business_number | message
@@ -27,8 +29,12 @@ import java.time.LocalDateTime;
 //   | business_status | tax_type | business_verified_at |   ← 국세청 확인 결과 (신청할 때 저장)
 //   | test_application |                                     ← 시연용 테스트 신청 여부
 //
+// 저장 형식
+//   address         : "부산광역시 …" 로 통일 (부산 밖 주소는 서비스에서 거부)
+//   phone · business_number : 하이픈 없이 숫자만. 화면에 보여줄 때만 common.js 의 formatPhone · formatBusinessNumber 로 하이픈
+//                     (이 형식으로 바뀌기 전 신청은 하이픈이 남아 있을 수 있음)
 // 대표자 성명 · 개업일자는 국세청 확인에만 쓰고 저장하지 않습니다. (개인정보 최소 저장)
-// 이 기능 전에 들어온 신청은 business_verified_at 이 null (관리자 화면에 "확인 전 신청"으로 표시)
+// 이 기능 전에 들어온 신청은 business_verified_at 이 null (관리자 화면에 "확인 기록 없음"으로 표시)
 @Entity
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)

@@ -40,10 +40,14 @@ import static org.mockito.Mockito.when;
 /**
  * AI 추천(AiRecommendService.recommend)의 N+1 개선 효과 측정
  *
- * 현재 코드  : recommend() → restaurantService.findAll()
+ * 기존 코드  : recommend() → restaurantService.findAll()
  *              → 맛집 목록 1번 + 맛집마다 평균 별점 1번  = 1 + N 쿼리
- * 개선 코드  : recommend() → restaurantService.findAllAvoidNPlusOne()
+ * 현재 코드  : recommend() → restaurantService.findAllAvoidNPlusOne()  (2026.11.17 김지현 커밋 d6b836f 에서 적용)
  *              → 맛집 목록 1번 + 평균 별점 IN 쿼리 1번   = 2 쿼리
+ *
+ * 측정 범위: "후보 목록 조회" 구간만. AI 가 고른 맛집(최대 3곳)에 리뷰 수 · 찜 수를 채우는
+ *   HomeService.findByIdsWithReviewCountAndWishlist()(쿼리 3번 고정)는 mock 으로 넘기고,
+ *   AI 응답도 빈 문자열이라 호출되지 않는다. 그 쿼리 수는 HomeServiceQueryCountTest ④ 에서 따로 검증한다.
  *
  * recommend() 에 넘기는 RestaurantService 를 "맛집 전체 목록을 요청하면 기존/개선 메서드로 연결"하는
  * 대역(mock)으로 바꿔서 비교한다. (서비스가 findAll / findAllAvoidNPlusOne 어느 쪽을 불러도 동작)

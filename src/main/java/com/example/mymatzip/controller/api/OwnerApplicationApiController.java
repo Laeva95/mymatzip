@@ -21,9 +21,11 @@ import java.util.Map;
 // ============================================================
 //
 // GET  /api/owner-applications/me → { "application": 내 가장 최근 신청 또는 null, "currentRole": DB 의 현재 역할 }
-// POST /api/owner-applications    → 신청 (201)
-//   400: 입력 오류 · 체크섬 실패 · 국세청 정보 불일치 · 휴업/폐업 · 다른 회원이 같은 사업자번호 사용
-//   409: 이미 심사 중 / 일반 회원이 아님,  503: 국세청 확인 서비스 연결 불가
+// POST /api/owner-applications    → 신청 (201)  ← owner/apply.html
+//   400: 입력 형식 오류 · 부산 밖 주소 · 사업자번호 체크섬 실패 · 없는/미래 개업일자 ·
+//        국세청 정보 불일치 · 휴업/폐업 · 다른 회원이 같은 사업자번호 사용
+//   409: 이미 심사 중 / 일반 회원이 아님,  503: 국세청 확인 서비스 연결 불가(키 없음 포함)
+//   testMode=true(시연용)면 국세청 대신 테스트 번호표로 판정 (NtsBusinessApiClient.verifyForTest)
 //
 // 보안: SecurityConfig 의 anyRequest().authenticated() 에 해당 → 로그인 필요 (수정 불필요)
 @RestController
@@ -69,7 +71,7 @@ public class OwnerApplicationApiController {
             return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
                     .body(Map.of("error", e.getMessage()));
         }
-        // IllegalArgumentException(체크섬 · 국세청 불일치 · 휴업 · 폐업 · 사업자번호 중복)은
+        // IllegalArgumentException(부산 주소 · 체크섬 · 개업일자 · 국세청 불일치 · 휴업 · 폐업 · 사업자번호 중복)은
         // GlobalExceptionHandler 가 400 으로 처리
     }
 }
