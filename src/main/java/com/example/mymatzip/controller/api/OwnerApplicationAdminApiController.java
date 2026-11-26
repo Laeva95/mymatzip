@@ -22,7 +22,10 @@ import java.util.Map;
 //
 // GET  /api/admin/owner-applications?status=PENDING&page=0&size=10 → 상태별 목록
 // POST /api/admin/owner-applications/{id}/approve                  → 승인 (회원 역할 USER → OWNER)
+//   404: 신청 없음, 409: 이미 처리된 신청 · 같은 사업자번호로 이미 승인된 다른 회원이 있음(실제 신청만)
 // POST /api/admin/owner-applications/{id}/reject  { "reason": "" } → 반려
+//   400: 사유 없음 · 500자 초과, 404: 신청 없음, 409: 이미 처리된 신청
+// 화면: admin/owner-applications.html (테스트 신청을 승인할 때는 경고 창을 따로 띄움)
 //
 // 보안: SecurityConfig 의 "/api/admin/**" → hasRole("ADMIN") 에 해당 (수정 불필요)
 // 응답 모양은 AdminApiController 목록과 같음 { content, totalPages, totalElements, currentPage }

@@ -4,6 +4,10 @@
   ${status}  : HTTP 상태 코드 (예: 404)
   ${error}   : 상태 이름 (예: Not Found)
   BasicErrorController 가 DefaultErrorAttributes 객체로 만든 값을 Model 에 넣어 전달한다.
+  브라우저 화면 요청일 때만 이 화면이 나오고, fetch(API) 요청은 같은 정보를 JSON 으로 받는다.
+  스택 트레이스 · 예외 클래스 이름은 보내지 않는다 (application.properties 의 server.error.* 설정).
+  ※ IllegalArgumentException · @Valid 실패는 GlobalExceptionHandler 가 먼저 가로채 JSON 400 으로 응답하므로
+    화면 컨트롤러에서 이 예외를 던지면 이 화면이 아니라 JSON 이 보인다.
 */-->
 <html lang="ko" xmlns:th="http://www.thymeleaf.org">
 <head th:replace="~{fragments/layout :: head('오류')}"></head>

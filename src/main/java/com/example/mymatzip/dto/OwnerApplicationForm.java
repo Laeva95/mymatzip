@@ -10,8 +10,10 @@ import lombok.Setter;
 // ============================================================
 // [OwnerApplicationForm.java] 식당 사장 권한 신청 요청 데이터
 // ============================================================
-// 사용처: POST /api/owner-applications (OwnerApplicationApiController.apply)
+// 사용처: POST /api/owner-applications (OwnerApplicationApiController.apply) ← owner/apply.html
 // @Valid 검증에 실패하면 GlobalExceptionHandler 가 400 + {"error": "필드: 메시지"} 로 응답
+// 여기서는 "형식"만 검사하고, 아래 검사는 OwnerApplicationService.apply() 가 한 번 더 한다
+//   부산 주소 여부 · 사업자번호 검증 숫자(체크섬) · 개업일자가 실제 있는 날짜인지 / 미래가 아닌지 · 숫자만 남겨 저장
 @Getter
 @Setter
 public class OwnerApplicationForm {

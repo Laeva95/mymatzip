@@ -4,7 +4,9 @@
 // 역할: Gradle이 이 파일을 제일 먼저 읽고, 프로젝트를 식별합니다.
 //
 // ★ 이 파일은 Spring Initializr가 자동 생성하며, 수정할 일이 거의 없습니다.
-// ★ rootProject.name 값은 build.gradle의 artifact 이름과 일치해야 합니다.
+// ★ rootProject.name 은 실행 jar 이름이 됩니다.
+//   build.gradle 의 bootJar { archiveFileName = "${rootProject.name}.jar" } → build/libs/my-matzip.jar
+//   CD 배포(cd.yml)와 EC2 의 matzip.service 가 이 이름(my-matzip.jar)을 쓰므로 바꾸면 배포 설정도 함께 바꿔야 합니다.
 // ============================================================
 
 rootProject.name = 'my-matzip'

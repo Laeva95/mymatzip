@@ -46,9 +46,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 //   [기존] RestaurantService 의 실제 메서드 (맛집 1개마다 AVG 쿼리 → 1 + N 번)
 //   [변경] 같은 Repository 조회 + 이 테스트 안의 toResponses() (AVG 를 IN 으로 한 번 → 1 + 1 번)
 //
-//   ※ 실제 RestaurantService 는 고치지 않습니다.
+//   ※ 이 테스트는 N+1 을 "발견 · 측정"하려고 만든 것이라 실제 RestaurantService 는 고치지 않습니다.
 //     "변경 후" 코드는 이 파일 아래쪽 toResponses() 에 그대로 옮겨 두었습니다.
-//     나중에 RestaurantService 에 toResponses() 를 적용하면 [기존] 쪽 숫자도 [변경]과 같아져야 합니다.
+//   ※ 이후 실제 수정은 RestaurantService 의 ...AvoidNPlusOne() 메서드로 들어갔습니다 (2026.11.16 권성애 커밋 fe9d85a).
+//     그 메서드들의 쿼리 수 비교는 RestaurantServiceAvoidNPlusOneTest 가 검사합니다.
+//     메인 화면 최근 맛집 6개는 지금 HomeService.findLatest6WithReviewCountAndWishlist()
+//     (찜 수까지 포함, 쿼리 3번 고정)를 쓰며 HomeServiceQueryCountTest 가 검사합니다.
 //
 // ▶ 어떻게 재나요?
 //   - 쿼리 수: Hibernate Statistics 의 getPrepareStatementCount() (실제로 DB 에 보낸 SQL 수)

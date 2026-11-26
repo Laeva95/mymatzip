@@ -41,13 +41,13 @@ class AiRecommendServiceTest {
         // 4. 실제 사용 횟수 관리 객체 사용
         AiUsageLimiter limiter = new AiUsageLimiter(2);
 
-        // ChatClient.Builder를 모의 객체로 생성
+        // 5. ChatClient.Builder를 모의 객체로 생성
                 ChatClient.Builder builder = mock(ChatClient.Builder.class);
 
         // build()가 호출되면 위에서 만든 chatClient를 반환하도록 설정
                 when(builder.build()).thenReturn(chatClient);
 
-        // 5. 서비스 생성
+        // 6. 서비스 생성 (HomeService 는 mock — 결과가 0건이라 호출되지 않음)
                 AiRecommendService service = new AiRecommendService(
                         builder,
                         restaurantService,
@@ -55,10 +55,10 @@ class AiRecommendServiceTest {
                         mock(HomeService.class)
                 );
 
-        // 5. 추천 실행
+        // 7. 추천 실행
         var result = service.recommend("조용한 맛집", 1L);
 
-        // 6. 결과가 0건이고 사용 횟수가 복구됐는지 확인
+        // 8. 결과가 0건이고 사용 횟수가 복구됐는지 확인 (AI 가 빈 답을 주면 refund)
         assertThat(result.get("picks")).asList().isEmpty();
         assertThat(result.get("remaining")).isEqualTo(2);
     }
