@@ -128,11 +128,12 @@ class WishlistHeartTest {
     }
 
     @Test
-    @DisplayName("비로그인 찜 요청은 처리되지 않고 로그인 화면으로 보내진다")
+    @DisplayName("비로그인 찜 요청은 처리되지 않고 401(로그인 필요)로 응답한다")
     void 비로그인_찜_요청() throws Exception {
+        // [변경]2026.11.27 API 는 로그인 화면 이동(302) 대신 401 JSON — wishlist-heart.js 는 401 을 로그인 안내로 처리
         mockMvc.perform(post("/api/wishlists/{id}", restaurant.getId()))
-                .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrl("/members/login"));
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error").value("로그인이 필요합니다."));
         assertThat(wishlistRepository.count()).isZero();
     }
 

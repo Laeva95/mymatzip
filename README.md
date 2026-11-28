@@ -153,6 +153,35 @@ build.gradle                 # Gradle 빌드 설정
 - **팀원별 담당 업무:** 첨부된 「2조 프로젝트 결과 보고서」의 '02 팀 구성 및 역할' 슬라이드
 - **검증 범위:** 파일과 클래스의 존재 및 설정을 확인한 것이며, 전체 기능의 통합 테스트나 서비스 운영 검증을 수행한 것은 아닙니다.
 
+## 9. 주요 API 명세
+
+| 경로 | 방식 | 권한 | 설명 |
+|---|---|---|---|
+| `/api/members/signup` | POST | 비회원 | 회원가입 |
+| `/api/members/login` | POST | 비회원 | 로그인 및 JWT 발급 |
+| `/api/restaurants` | GET | 전체 | 맛집 목록 조회 |
+| `/api/restaurants/{id}` | GET | 전체 | 맛집 상세 조회 |
+| `/api/restaurants/search` | GET | 전체 | 맛집 검색 |
+| `/api/restaurants` | POST | 사장, 관리자 | 맛집 등록 |
+| `/api/restaurants/{id}` | PUT | 등록자, 관리자 | 맛집 수정 |
+| `/api/restaurants/{id}` | DELETE | 등록자, 관리자 | 맛집 삭제 |
+| `/api/reviews/restaurant/{restaurantId}` | GET | 전체 | 맛집별 리뷰 조회 |
+| `/api/reviews` | POST | 로그인 사용자 | 리뷰 및 별점 등록 |
+| `/api/reviews/{id}` | DELETE | 작성자, 관리자 | 리뷰 삭제 |
+| `/api/reviews/{id}/report` | POST | 로그인 사용자 | 리뷰 신고 |
+| `/api/replies` | POST | 로그인 사용자 | 리뷰 답글 등록 |
+| `/api/wishlists/{restaurantId}` | POST | 로그인 사용자 | 맛집 찜 등록 |
+| `/api/ai/recommend` | POST | 로그인 사용자 | AI 맛집 추천 |
+| `/api/ai/restaurants/{id}/summary` | POST | 로그인 사용자 | AI 리뷰 요약 |
+| `/api/files/uploadfors3only` | POST | 로그인 사용자 | AWS S3 파일 업로드 |
+| `/api/owner-applications` | POST | 회원 | 사장 권한 신청 |
+| `/api/admin/members` | GET | 관리자 | 회원 관리 |
+| `/api/admin/reviews/reported` | GET | 관리자 | 신고 리뷰 관리 |
+
+- 전체: 비회원, 회원, 사장, 관리자
+- 로그인 사용자: 회원, 사장, 관리자
+- 등록자 및 작성자: 해당 데이터를 등록하거나 작성한 사용자
+
 ---
 
 **MyMatzip — 부산의 맛집을 발견하고, 경험을 공유하는 공간**

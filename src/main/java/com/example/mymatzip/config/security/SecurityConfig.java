@@ -69,6 +69,19 @@ import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 // JWT 필터를 이 필터 "앞"에 배치하여 JWT 인증을 먼저 수행
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
+// [추가]2026.11.27 API 인증 · 권한 실패 응답 (401 / 403 JSON)
+//   AuthenticationEntryPoint : 로그인 안 한 요청이 보호된 주소에 왔을 때 응답을 정함
+//   AccessDeniedHandler      : 로그인은 했지만 권한이 없을 때 응답을 정함
+//   LoginUrlAuthenticationEntryPoint / AccessDeniedHandlerImpl : 화면 요청은 기존처럼 처리 (로그인 페이지 이동 · 403 오류 화면)
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import org.springframework.security.web.AuthenticationEntryPoint;
+import org.springframework.security.web.access.AccessDeniedHandler;
+import org.springframework.security.web.access.AccessDeniedHandlerImpl;
+import org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint;
+
 // PathPatternRequestMatcher: URL 패턴 매칭 — 로그아웃 요청 GET/POST 모두 허용하기 위해 사용
 import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
 
@@ -201,6 +214,16 @@ public class SecurityConfig {
                         .clearAuthentication(true)
                 )
 
+                // ── [추가]2026.11.27 인증 · 권한 실패 응답 ───────────────
+                // 이전: 로그인 없이 /api/** 를 부르면 폼 로그인 기본 동작으로 302 → /members/login (API 인데 HTML 화면으로 이동)
+                // 변경: /api/** 는 401(로그인 필요) · 403(권한 없음)을 JSON {"error": "..."} 으로 응답
+                //       화면 요청(/restaurants/new, /admin 등)은 기존처럼 로그인 페이지로 이동 · 403 오류 화면
+                // 화면 JS(common.js fetchJson, wishlist-heart.js)는 이미 401 을 "로그인 필요"로 처리하므로 수정 불필요
+                .exceptionHandling(ex -> ex
+                        .authenticationEntryPoint(apiAwareAuthenticationEntryPoint())
+                        .accessDeniedHandler(apiAwareAccessDeniedHandler())
+                )
+
                 // ── 세션 관리 설정 ───────────────────────────────
                 // IF_REQUIRED: 필요할 때만 세션 생성 (타임리프 화면를 위한 세션 + API는 JWT 사용)
                 .sessionManagement(session -> session
@@ -233,6 +256,56 @@ public class SecurityConfig {
         }
 
         return http.build();
+    }
+
+    // ── [추가]2026.11.27 인증 실패 응답: /api/** → 401 JSON, 화면 → 로그인 페이지 ──
+    // 호출 시점: 로그인하지 않은(또는 JWT 가 없거나 잘못된) 요청이 로그인 필요한 주소에 왔을 때
+    //   ExceptionTranslationFilter 객체가 이 메서드가 만든 AuthenticationEntryPoint 의 commence() 를 부른다.
+    private AuthenticationEntryPoint apiAwareAuthenticationEntryPoint() {
+        AuthenticationEntryPoint loginPage = new LoginUrlAuthenticationEntryPoint("/members/login");
+        return (request, response, authException) -> {
+            if (isApiRequest(request)) {
+                writeJsonError(response, HttpServletResponse.SC_UNAUTHORIZED, "로그인이 필요합니다.");
+            } else {
+                loginPage.commence(request, response, authException);
+            }
+        };
+    }
+
+    // ── [추가]2026.11.27 권한 실패 응답: /api/** → 403 JSON, 화면 → 기존 403 처리 ──
+    // 호출 시점: 로그인은 했지만 권한이 부족할 때
+    //   ① URL 규칙에서 막힘 (예: USER 가 /api/admin/** 호출) → 기본 문구 "Access Denied" → "접근 권한이 없습니다."
+    //   ② 서비스가 직접 던진 AccessDeniedException 을 컨트롤러가 잡지 않았을 때
+    //      (예: RestaurantService "맛집 등록 권한이 없습니다.") → 그 문구를 그대로 보여 줌
+    private AccessDeniedHandler apiAwareAccessDeniedHandler() {
+        AccessDeniedHandler defaultHandler = new AccessDeniedHandlerImpl();
+        return (request, response, accessDeniedException) -> {
+            if (isApiRequest(request)) {
+                String message = accessDeniedException.getMessage();
+                if (message == null || message.isBlank() || "Access Denied".equals(message)) {
+                    message = "접근 권한이 없습니다.";
+                }
+                writeJsonError(response, HttpServletResponse.SC_FORBIDDEN, message);
+            } else {
+                defaultHandler.handle(request, response, accessDeniedException);
+            }
+        };
+    }
+
+    // JwtAuthenticationFilter 와 같은 기준으로 API 요청을 구분 (/api/ 로 시작하는 주소)
+    private static boolean isApiRequest(HttpServletRequest request) {
+        return request.getRequestURI().startsWith(request.getContextPath() + "/api/");
+    }
+
+    // 응답 본문 모양은 다른 API 오류와 같게 {"error": "..."}
+    //   서비스 문구가 들어올 수 있으므로 JSON 에서 특별한 의미가 있는 \ " 와 줄바꿈은 이스케이프
+    private static void writeJsonError(HttpServletResponse response, int status, String message) throws IOException {
+        String escaped = message.replace("\\", "\\\\").replace("\"", "\\\"")
+                .replace("\r", "\\r").replace("\n", "\\n");
+        response.setStatus(status);
+        response.setCharacterEncoding(StandardCharsets.UTF_8.name());
+        response.setContentType("application/json");
+        response.getWriter().write("{\"error\":\"" + escaped + "\"}");
     }
 
     // ── AuthenticationManager 빈 등록 ────────────────────────
